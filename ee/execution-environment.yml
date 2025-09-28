@@ -1,0 +1,14 @@
+version: 3
+
+images:
+  base_image:
+    # Match your AWX version (you said 23.4.0)
+    name: quay.io/ansible/awx-ee:23.4.0
+
+dependencies:
+  galaxy: requirements.yml # has `cisco.intersight`
+  python: requirements.txt # has `intersight`
+
+options:
+  # Tell builder to use dnf if microdnf is missing
+  package_manager_path: /usr/bin/dnf

@@ -1,0 +1,32 @@
+---
+- name: Reserve available IP in Infoblox
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars_files:
+    - ticket.yml
+
+  tasks:
+    - name: Encode credentials
+      set_fact:
+        ipam_auth_header: "Basic {{ (infoblox_username + ':' + infoblox_password) | b64encode }}"
+
+    - name: Reserve IP from selected network (Infoblox)
+      uri:
+        url: "{{ infoblox_api_url }}/fixedaddress"
+        method: POST
+        headers:
+          Authorization: "{{ ipam_auth_header }}"
+          Content-Type: "application/json"
+        body_format: json
+        body: 
+          name: "{{ reserve_ip_input.name }}"
+          ipv4addr: "{{ fetch_ip_output.available_ip }}"
+          comment: "Reserved via Ansible"
+          match_client: "RESERVED"
+        validate_certs: false
+        return_content: true
+        timeout: 30
+      register: ip_response
+      failed_when: ip_response.status != 201

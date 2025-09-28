@@ -1,0 +1,51 @@
+---
+- name: Create Server Profiles
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars_files:
+    - ticket.yml
+
+  tasks:
+    - name: "Create Server Profile from Template"
+      cisco.intersight.intersight_rest_api:
+        api_key_id: "{{ intersight_api_key_id }}"
+        api_private_key: "{{ intersight_api_private_key }}"
+        api_uri: "{{ intersight_base_url }}"
+        resource_path: /server/Profiles
+        update_method: post
+        api_body:
+          Name: "{{ item.name }}"
+          Description: "{{ item.description }}"
+          TargetPlatform: "FIAttached"
+          Type: "instance"
+          ServerAssignmentMode: "Pool"
+          SrcTemplate:
+            ObjectType: "server.ProfileTemplate"
+            Moid: "{{ spt_output.server_profile_template_moid }}"
+          ServerPool:
+            ObjectType: "resourcepool.Pool"
+            Moid: "{{ rc_output.resource_pool_moid }}"
+          Organization:
+            ObjectType: "organization.Organization"
+            Moid: "{{ organization_output.organization_moid }}"
+          Tags:
+            - Key: "configmode"
+              Value: "ansible"
+            - Key: "source_template"
+              Value: "{{ spt_input.server_profile_template_name }}"
+            - Key: "resource_pool"
+              Value: "{{ rc_input.resource_pool_name }}"
+      loop: "{{ server_profile_input.server_profile_info }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: server_profile_creation_result
+
+    - name: Summarize created profiles
+      debug:
+        msg: >-
+          Profile {{ item.api_response.Name }} 
+          (Moid: {{ item.api_response.Moid }}) 
+          Assigned server: {{ item.api_response.AssignedServer.Moid | default('not yet assigned') }}
+      loop: "{{ server_profile_creation_result.results }}"

@@ -1,0 +1,21 @@
+---
+- name: Configure VMNetwork vSwitch
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars_files:
+    - ticket.yml
+
+  tasks:
+    - name: Ensure VM Network vSwitch exists with vmnic4 + vmnic5
+      community.vmware.vmware_vswitch:
+        hostname: "{{ os_install_input.mgmt_ip }}" # ESXi host or vCenter
+        username: "{{ os_install_input.install_hostname }}"
+        password: "{{ os_install_input.root_password }}"
+        validate_certs: false
+        esxi_hostname: "{{ os_install_input.mgmt_ip }}"
+        switch: "{{ conf_vmnetwork_vswitch_input.switch }}"
+        nics: "{{ conf_vmnetwork_vswitch_input.uplinks }}"
+        state: present
+      delegate_to: localhost

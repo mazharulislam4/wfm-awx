@@ -1,0 +1,74 @@
+---
+# 1) Lookup Organization
+- name: Step 1 - Lookup Organization
+  import_playbook: lookup_organization.yml
+  tags: [step1]
+# # 2) Lookup Resource Pool
+- name: Step 2 - Lookup Resource Pool
+  import_playbook: lookup_resource_pool.yml
+  tags: [step2]
+
+# # 3) Lookup Server Profile Template
+- name: Step 3 - Lookup Server Profile Template
+  import_playbook: lookup_server_profile_template.yml
+  tags: [step3]
+
+# # 4) Create Server Profiles
+- name: Step 4 - Create Server Profiles
+  import_playbook: create_server_profiles.yml
+  tags: [step4]
+
+# # 5) Infoblox - Find/Allocate available IP
+- name: Step 5 - Allocate available IP from Infoblox
+  import_playbook: fetch_available_ip.yml
+  tags: [step5]
+
+# # Step 6: Reserve the IP only IPv4 Reservation
+# - name: Step 6 - Reserve the IP only for IPv4 Reservation
+#   import_playbook: reserve_available_ip.yml
+#   tags: [step6]
+
+# Step 7: Check the Servers which the Server Profiles got assigned
+- name: Step 7 - Check the Servers which the Server Profiles got assigned
+  import_playbook: lookup_server_with_server_profile.yml
+  tags: [step7]
+
+# Step 8: Fetch OS Image
+- name: Step 8 - Fetch OS Image
+  import_playbook: lookup_os_image.yml
+  tags: [step8]
+
+# Step 9: Fetch OS Configuration File
+- name: Step 9 - Fetch OS Configuration File
+  import_playbook: lookup_os_config_file.yml
+  tags: [step9]
+
+# Step 10: Fetch SCU Image
+- name: Step 10 - Fetch SCU Image
+  import_playbook: lookup_scu_image.yml
+  tags: [step10]
+
+# # Step 11: OS Install through Intersight
+# - name: Step 11 - OS Install through Intersight
+#   import_playbook: os_install.yml
+#   tags: [step11]
+
+# Step 12: Configure Management vSwitch
+- name: Step 12 - Configure Management vSwitch
+  import_playbook: configure_mgmt_vswitch.yml
+  tags: [step12]
+
+# Step 13: Configure Storage vSwitch, PortGroups, VMkernel
+- name: Step 13 - Configure Storage vSwitch, PortGroups, VMkernel
+  import_playbook: configure_storage_vswitch.yml
+  tags: [step13]
+
+#Step 14: Configure VMNetwork vSwitch
+- name: Step 14 - Configure VMNetwork vSwitch
+  import_playbook: configure_vmnetwork_vswitch.yml
+  tags: [step14]
+
+# Step 15: Configure Vmotion vSwitch, PortGroups, VMkernel
+- name: Step 15 - Configure Vmotion vSwitch, PortGroups, VMkernel
+  import_playbook: configure_vmotion_vswitch.yml
+  tags: [step15]

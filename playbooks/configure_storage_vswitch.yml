@@ -1,0 +1,50 @@
+---
+- name: Configure Storage vSwitch, PortGroups, VMkernel
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars_files:
+    - ticket.yml
+
+  tasks:
+    - name: Ensure Storage vSwitch exists with vmnic2 + vmnic3
+      community.vmware.vmware_vswitch:
+        hostname: "{{ os_install_input.mgmt_ip }}" # ESXi host or vCenter
+        username: "{{ os_install_input.install_hostname }}"
+        password: "{{ os_install_input.root_password }}"
+        validate_certs: false
+        esxi_hostname: "{{ os_install_input.mgmt_ip }}" # when connecting directly to ESXi
+        switch: "{{ conf_storage_vswitch_input.switch }}" # typically vSwitch0
+        nics: "{{ conf_storage_vswitch_input.uplinks }}"
+        state: present
+      delegate_to: localhost
+
+    - name: Ensure Storage portgroup exists
+      community.vmware.vmware_portgroup:
+        hostname: "{{ os_install_input.mgmt_ip }}" # ESXi host or vCenter
+        username: "{{ os_install_input.install_hostname }}"
+        password: "{{ os_install_input.root_password }}"
+        validate_certs: false
+        hosts: ["{{ os_install_input.mgmt_ip }}"]
+        switch: "{{ conf_storage_vswitch_input.switch }}"
+        portgroup: "{{ conf_storage_vswitch_input.portgroup }}"
+        vlan_id: "{{ conf_storage_vswitch_input.vlan_id | default(0) }}"
+        state: present
+      delegate_to: localhost
+
+    - name: Create/Update Storage VMkernel (assign your Storage IP)
+      community.vmware.vmware_vmkernel:
+        hostname: "{{ os_install_input.mgmt_ip }}" # ESXi host or vCenter
+        username: "{{ os_install_input.install_hostname }}"
+        password: "{{ os_install_input.root_password }}"
+        validate_certs: false
+        esxi_hostname: "{{ os_install_input.mgmt_ip }}"
+        vswitch_name: "{{ conf_storage_vswitch_input.switch }}"
+        portgroup_name: "{{ conf_storage_vswitch_input.portgroup }}"
+        network:
+          type: static
+          ip_address: "{{ conf_storage_vswitch_input.ip }}"
+          subnet_mask: "{{ conf_storage_vswitch_input.netmask }}"
+        state: present
+      delegate_to: localhost

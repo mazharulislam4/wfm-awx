@@ -1,0 +1,36 @@
+---
+- name: Lookup Server Profile Template Moid Independently
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars_files:
+    - ticket.yml
+
+  tasks:
+    - name: "Lookup Server Profile Template by Name"
+      cisco.intersight.intersight_rest_api:
+        api_key_id: "{{ intersight_api_key_id }}"
+        api_private_key: "{{ intersight_api_private_key }}"
+        api_uri: "{{ intersight_base_url }}"
+        resource_path: "/server/ProfileTemplates"
+        query_params:
+          $filter: "Name eq '{{ spt_input.server_profile_template_name }}'"
+      register: template_lookup
+
+    - name: "Debug Template Lookup"
+      debug:
+        var: template_lookup
+
+    - name: "Check if template exists"
+      fail:
+        msg: "No server profile template found with name '{{ spt_input.server_profile_template_name }}'"
+      when: template_lookup.api_response is not defined
+
+    - name: "Set fact for template Moid"
+      set_fact:
+        template_moid: "{{ template_lookup.api_response.Moid }}"
+
+    - name: "Debug template Moid"
+      debug:
+        var: template_moid

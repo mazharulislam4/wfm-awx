@@ -1,0 +1,7 @@
+---
+- name: Hello World Playbook
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - debug: { msg: "Hello from AWX running inside Kubernetes!" }

@@ -1,0 +1,21 @@
+---
+- name: Configure Management vSwitch
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars_files:
+    - ticket.yml
+
+  tasks:
+    - name: Ensure Mgmt vSwitch has vmnic0 + vmnic1 (mgmt-A/mgmt-B)
+      community.vmware.vmware_vswitch:
+        hostname: "{{ os_install_input.mgmt_ip }}" # ESXi host or vCenter
+        username: "{{ os_install_input.install_hostname }}"
+        password: "{{ os_install_input.root_password }}"
+        validate_certs: false
+        esxi_hostname: "{{ os_install_input.mgmt_ip }}" # when connecting directly to ESXi
+        switch: "{{ conf_mgmt_vswitch_input.switch }}" # typically vSwitch0
+        nics: "{{ conf_mgmt_vswitch_input.uplinks }}"
+        state: present
+      delegate_to: localhost

@@ -1,0 +1,179 @@
+#########################################
+## Access Information
+# Intersight Creds for the Automation
+intersight_api_key_id: "68701e3f75646133015b674b/689f736a75646132018d48c6/68bb2c5f7564613201166aac"
+intersight_api_private_key: "{{ lookup('file', 'AnsibleDev-SecretKey.txt') }}"
+intersight_base_url: "https://intersight.com/api/v1"
+
+# Infoblox Creds for Automation
+infoblox_api_url: "https://10.20.1.45/wapi/v2.12"
+infoblox_username: "admin"
+infoblox_password: "infoblox"
+
+# ansible_python_interpreter: D:\COMP\anaconda\anaconda\python.exe
+#########################################
+
+# Step 1: Fetch Organization
+# File Associated: lookup_organization.yml
+organization_input:
+  organization_name: "default"
+organization_output:
+  organization_moid: "68701e436972653101590c8e"
+
+# Step 2: Fetch Resource Pool
+# File Associated: lookup_resource_pool.yml
+rc_input:
+  resource_pool_name: "FredHutch_RP"
+rc_output:
+  resource_pool_moid: "689249df6962753101595797"
+
+# Step 3: Fetch Server Profile Template
+# File Associated: lookup_server_profile_template.yml
+spt_input:
+  server_profile_template_name: "VZURE_UCSX_SP_TEMPLATE"
+spt_output:
+  server_profile_template_moid: "6870975277696e3201d29a7c"
+
+# Step 4: Derive and Assign Server Profiles using Resource Pool
+# File Associated: create_server_profiles.yml
+server_profile_input:
+  server_profile_info:
+    - name: "SP-001"
+      description: "Server Profile 001 derived from VZURE template"
+    #  - name: "SP-002"
+    #    description: "Server Profile 002 derived from VZURE template"
+  # server_profile_template_name, server_profile_template_moid from Step 3
+  # resource_pool_name, resource_pool_moid from Step 2
+  # organization_moid from Step 1
+server_profile_output:
+  server_profile_moid: "68d5bad777696e3201f63e18" # Get the created server profile moids
+  # Only success confirmation
+
+# Step 5: Fetch Next Available IP
+# File Associated: fetch_available_ip.yml
+fetch_ip_input:
+  network_id: "10.50.1.0/24"
+fetch_ip_output:
+  available_ip: "10.50.1.4"
+
+## Note: We can do only Step 6 or 7
+
+# Step 6: Reserve the IP only IPv4 Reservation
+# File Associated: reserve_available_ip.yml
+# Note: Need to trigger this only when required
+reserve_ip_input:
+  name: "ReserveIP"
+  # available_ip from Step 5
+reserve_ip_output:
+  # Only success confirmation
+
+# Step 7: Reserve the IP and DNS Host
+# File Associated: fetch_available_ip.yml
+# Note: Need to trigger this only when required
+reserve_ip_dns_input:
+  hostname: "ReserveIP"
+  dns_zone: ".fredhutch.com"
+  host_comment: "Created by Ansible automation"
+  # available_ip from Step 5
+reserve_ip_dns_output:
+  # Only success confirmation
+
+# Step 8: Check the Servers which the Server Profiles got assigned
+# File Associated: lookup_server_with_server_profile.yml
+lookup_swsp_input:
+  # server_profile_moid from Step 4
+lookup_swsp_output:
+  # server_moid: "6872f8b776752d32017e4d20" # Server: Vzure-Dev-1-1
+  # server_moid: "6872f8b776752d32017e4eb1" # Server: Vzure-Dev-1-2
+  server_moid: "68d577a777696e3201f343c6" # Server: Vzure-Dev-1-3
+  server_object_type: "compute.Blade"
+  # success confirmation
+
+# Step 9: Fetch OS Image
+# File Associated: lookup_os_config_file.yml
+lookup_os_image_input:
+  os_image_name: "VMware ESXi 7 Update 3"
+lookup_os_image_output:
+  os_image_moid: "689df5d4656761310115bf9e"
+
+# Step 10: Fetch OS Configuration File
+# File Associated: lookup_os_config_file.yml
+lookup_os_config_input:
+  config_file_name: "ESXi7.0ConfigFile"
+lookup_os_config_output:
+  config_file_moid: "60385ca6fe80db55aecd5bed"
+
+# Step 11: Fetch SCU Image
+# File Associated: lookup_scu_image.yml
+lookup_scu_image_input:
+  scu_image_name: "ucs-scu-7.1.4.250200"
+lookup_scu_image_output:
+  scu_image_moid: "68a65d5c656761310159cae9"
+
+# Step 12: OS Install through Intersight
+# File Associated: os_install.yml
+os_install_input:
+  # organization_moid from Step 1
+  # server_moid from Step 8
+  # os_image_moid from Step 9
+  # config_file_moid from Step 10
+  # scu_image_moid from Step 11
+  install_hostname: "root" # Ref: "bifrostlocalh02"
+  root_password: "P@ssw0rd!23" # Ref: "Vzure123!"
+  dns_primary: "8.8.8.8"
+  mgmt_ip: "10.21.1.52" # Ref: "10.21.1.3"
+  mgmt_netmask: "255.255.255.0"
+  mgmt_gw: "10.21.1.254"
+os_install_output:
+  # success confirmation
+
+# Step 13: Configure Management vSwitch
+# File Associated: configure_mgmt_vswitch.yml
+conf_mgmt_vswitch_input:
+  # mgmt_ip from Step 12 which is the host now
+  # install_hostname from Step 12 with is username
+  # root_password from Step 12
+  switch: vSwitch0
+  uplinks: [vmnic0, vmnic1]
+conf_mgmt_vswitch_output:
+  # success confirmation
+
+# Step 14: Configure Storage vSwitch, PortGroups, VMkernel
+# File Associated: configure_storage_vswitch.yml
+conf_storage_vswitch_input:
+  # mgmt_ip from Step 12 which is the host now
+  # install_hostname from Step 12 with is username
+  # root_password from Step 12
+  switch: vSwitch1
+  uplinks: [vmnic2, vmnic3]
+  portgroup: "Storage"
+  vlan_id: 0
+  ip: 10.21.1.53 # Should be from infoblox output from Step 6 and provide the value
+  netmask: 255.255.255.0
+conf_storage_vswitch_output:
+  # success confirmation
+
+# Step 15: Configure VMNetwork vSwitch
+# File Associated: configure_vmnetwork_vswitch.yml
+conf_vmnetwork_vswitch_input:
+  # mgmt_ip from Step 12 which is the host now
+  # install_hostname from Step 12 with is username
+  # root_password from Step 12
+  switch: vSwitch2
+  uplinks: [vmnic4, vmnic5]
+conf_vmnetwork_vswitch_output:
+  # success confirmation
+# Step 16: Configure Vmotion vSwitch, PortGroups, VMkernel
+# File Associated: configure_vmotion_vswitch.yml
+conf_vmotion_vswitch_input:
+  # mgmt_ip from Step 12 which is the host now
+  # install_hostname from Step 12 with is username
+  # root_password from Step 12
+  switch: vSwitch3
+  portgroup: "vMotion"
+  uplinks: [vmnic6, vmnic7]
+  ip: 10.21.1.54 # Should be from infoblox output from Step 6 and provide the value
+  netmask: 255.255.255.0
+  vlan_id: 0
+conf_vmotion_vswitch_output:
+  # success confirmation

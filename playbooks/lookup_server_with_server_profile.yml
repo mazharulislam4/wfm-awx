@@ -1,0 +1,54 @@
+---
+- name: Check Server with Server Profiles Assigned
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars_files:
+    - ticket.yml
+
+  tasks:
+    - name: Get profile details to check assigned server
+      cisco.intersight.intersight_rest_api:
+        api_key_id: "{{ intersight_api_key_id }}"
+        api_private_key: "{{ intersight_api_private_key }}"
+        api_uri: "{{ intersight_base_url }}"
+        resource_path: "/server/Profiles"
+        query_params:
+          $filter: "Moid eq '{{ server_profile_output.server_profile_moid }}'"
+      register: profile_details
+
+    - name: "Debug resolved profile details"
+      debug:
+        var: profile_details
+
+    - name: Fail if profile not found
+      fail:
+        msg: "Server profile with Moid {{ server_profile_output.server_profile_moid }} not found"
+      when: profile_details.api_response | length == 0 or profile_details.api_response.Moid is not defined
+
+    - name: Set server facts when profile is assigned
+      set_fact:
+        assigned_server_moid: "{{ profile_details.api_response.AssignedServer.Moid }}"
+        assigned_server_object_type: "{{ profile_details.api_response.AssignedServer.ObjectType }}"
+      when: 
+        - profile_details.api_response.AssignedServer is defined
+        - profile_details.api_response.AssignedServer.Moid is defined
+
+    - name: Set server facts when profile is not assigned
+      set_fact:
+        assigned_server_moid: "none"
+        assigned_server_object_type: "none"
+      when: 
+        - profile_details.api_response.AssignedServer is not defined or 
+          profile_details.api_response.AssignedServer.Moid is not defined
+
+    - name: "Show profile assignment status" 
+      debug:
+        msg: "Profile {{ profile_details.api_response.Name }} assigned to server {{ assigned_server_moid }}"
+
+    - name: Set lookup output variables
+      set_fact:
+        lookup_swsp_output:
+          server_moid: "{{ assigned_server_moid }}"
+          server_object_type: "{{ assigned_server_object_type }}"

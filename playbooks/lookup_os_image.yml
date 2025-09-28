@@ -1,0 +1,22 @@
+---
+- name: Lookup OS Image Moid Independently
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars_files:
+    - ticket.yml
+
+  tasks:
+    - name: Lookup OS image MOID by name
+      cisco.intersight.intersight_rest_api:
+        api_key_id: "{{ intersight_api_key_id }}"
+        api_private_key: "{{ intersight_api_private_key }}"
+        resource_path: "/softwarerepository/OperatingSystemFiles"
+        query_params:
+          $filter: "Name eq '{{ lookup_os_image_input.os_image_name }}'"
+          $select: "Moid,Name"
+      register: os_lookup
+
+    - debug:
+        msg: "{{ os_lookup.api_response.Moid }}"

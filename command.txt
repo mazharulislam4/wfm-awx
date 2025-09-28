@@ -1,0 +1,5 @@
+----------- copy to awx project ----------
+TASK=$(kubectl -n awx get pod -l app.kubernetes.io/name=wfm-awx-task -o jsonpath='{.items[0].metadata.name}')
+echo $TASK
+
+kubectl cp ./playbooks/. "$TASK":/var/lib/awx/projects/wfm-awx/playbooks -c wfm-awx-task -n awx

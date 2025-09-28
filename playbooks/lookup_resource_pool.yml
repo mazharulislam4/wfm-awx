@@ -1,0 +1,36 @@
+---
+- name: Lookup Resource Pool Moid Independently
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars_files:
+    - ticket.yml
+
+  tasks:
+    - name: "Lookup Resource Pool by Name"
+      cisco.intersight.intersight_rest_api:
+        api_key_id: "{{ intersight_api_key_id }}"
+        api_private_key: "{{ intersight_api_private_key }}"
+        api_uri: "{{ intersight_base_url }}"
+        resource_path: "/resourcepool/Pools"
+        query_params:
+          $filter: "Name eq '{{ rc_input.resource_pool_name }}'"
+      register: resource_pool_lookup
+
+    - name: "Debug Resource Pool Lookup"
+      debug:
+        var: resource_pool_lookup
+
+    - name: "Check if resource pool exists"
+      fail:
+        msg: "No resource pool found with name '{{ rc_input.resource_pool_name }}'"
+      when: resource_pool_lookup.api_response is not defined
+
+    - name: "Set fact for resource pool Moid"
+      set_fact:
+        resource_pool_moid: "{{ resource_pool_lookup.api_response.Moid }}"
+
+    - name: "Debug resource pool Moid"
+      debug:
+        var: resource_pool_moid

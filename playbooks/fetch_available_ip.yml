@@ -1,0 +1,59 @@
+---
+- name: Fetch available IP in Infoblox
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars_files:
+    - ticket.yml
+
+  tasks:
+    - name: Encode credentials
+      set_fact:
+        ipam_auth_header: "Basic {{ (infoblox_username + ':' + infoblox_password) | b64encode }}"
+
+    - name: Get network reference (_ref) from Infoblox using network_id
+      uri:
+        url: "{{ infoblox_api_url }}/network?network={{ fetch_ip_input.network_id | urlencode }}"
+        method: GET
+        headers:
+          Authorization: "{{ ipam_auth_header }}"
+        return_content: true
+        validate_certs: false
+        timeout: 30
+      register: network_lookup
+      failed_when:
+        - network_lookup.status != 200 or (network_lookup.json | length == 0)
+      retries: 3
+      delay: 5
+
+    - name: Set network_ref from lookup response
+      set_fact:
+        network_ref: "{{ network_lookup.json[0]._ref }}"
+
+    - name: Fetch next available IP from selected network (Infoblox)
+      uri:
+        url: "{{ infoblox_api_url }}/{{ network_ref }}?_function=next_available_ip"
+        method: POST
+        headers:
+          Authorization: "{{ ipam_auth_header }}"
+          Content-Type: "application/json"
+        body: '{ "num": 1 }'
+        body_format: json
+        validate_certs: false
+        return_content: true
+        timeout: 30
+      register: ip_response
+      failed_when:
+        - ip_response.status != 200
+        - ip_response.json.ips is not defined or ip_response.json.ips | length == 0
+      retries: 3
+      delay: 5
+
+    - name: Set available IP
+      set_fact:
+        available_ip: "{{ ip_response.json.ips[0] }}"
+
+    - name: Show available IP address
+      debug:
+        msg: "✅ available IP: {{ available_ip }}"
