@@ -8,15 +8,14 @@
     - credentials.yml
 
   vars:
-    # Runtime parameters - can be passed via -e or AWX
-    profile_moid: "{{ server_profile_moid}}"
+    # Runtime parameter - must be passed via extra-vars
+    profile_moid: "{{ server_profile_moid }}"
 
   tasks:
-    - name: Validate required parameters
+    - name: "Validate required runtime parameters"
       fail:
-        msg: "Missing required parameter: server_profile_moid"
-      when: profile_moid is not defined or profile_moid == ''
-
+        msg: "server_profile_moid is required. Pass it with -e 'server_profile_moid=YourProfileMoid'"
+      when: server_profile_moid is not defined or server_profile_moid == ""
     - name: Get profile details to check assigned server
       cisco.intersight.intersight_rest_api:
         api_key_id: "{{ intersight_api_key_id }}"
@@ -27,34 +26,44 @@
           $filter: "Moid eq '{{ profile_moid }}'"
       register: profile_details
 
-    - name: Validate profile found
+    - name: "Debug resolved profile details"
+      debug:
+        var: profile_details
+
+    - name: Fail if profile not found
       fail:
         msg: "Server profile with Moid {{ profile_moid }} not found"
-      when: profile_details.api_response is not defined or profile_details.api_response.Moid is not defined
+      when: profile_details.api_response | length == 0 or profile_details.api_response.Moid is not defined
 
-    - name: Determine server assignment status
+    - name: Set server facts when profile is assigned
       set_fact:
-        assigned_server_moid: "{{ profile_details.api_response.AssignedServer.Moid if (profile_details.api_response.AssignedServer is defined and profile_details.api_response.AssignedServer.Moid is defined) else 'none' }}"
-        assigned_server_object_type: "{{ profile_details.api_response.AssignedServer.ObjectType if (profile_details.api_response.AssignedServer is defined and profile_details.api_response.AssignedServer.ObjectType is defined) else 'none' }}"
-        assignment_status: "{{ 'assigned' if (profile_details.api_response.AssignedServer is defined and profile_details.api_response.AssignedServer.Moid is defined) else 'unassigned' }}"
+        assigned_server_moid: "{{ profile_details.api_response.AssignedServer.Moid }}"
+        assigned_server_object_type: "{{ profile_details.api_response.AssignedServer.ObjectType }}"
+      when: 
+        - profile_details.api_response.AssignedServer is defined
+        - profile_details.api_response.AssignedServer.Moid is defined
 
-    - name: Set standard output
+    - name: Set server facts when profile is not assigned
       set_fact:
-        # Legacy compatibility
-        lookup_swsp_output:
-          server_moid: "{{ assigned_server_moid }}"
-          server_object_type: "{{ assigned_server_object_type }}"
-        # Standard output structure
+        assigned_server_moid: "none"
+        assigned_server_object_type: "none"
+      when: 
+        - profile_details.api_response.AssignedServer is not defined or 
+          profile_details.api_response.AssignedServer.Moid is not defined
+
+    - name: "Show profile assignment status" 
+      debug:
+        msg: "Profile {{ profile_details.api_response.Name }} assigned to server {{ assigned_server_moid }}"
+
+    - name: "Standardized output"
+      set_fact:
         workflow_results:
           server_assignment:
-            profile_name: "{{ profile_details.api_response.Name }}"
             profile_moid: "{{ profile_moid }}"
+            profile_name: "{{ profile_details.api_response.Name | default('Unknown') }}"
             server_moid: "{{ assigned_server_moid }}"
             server_object_type: "{{ assigned_server_object_type }}"
-            assignment_status: "{{ assignment_status }}"
+            assignment_status: "{{ 'assigned' if assigned_server_moid != 'none' else 'unassigned' }}"
+            data: "{{ profile_details }}"
             job_type: "lookup_server_with_server_profile"
             status: "success"
-
-    - name: Display results
-      debug:
-        msg: "Profile '{{ profile_details.api_response.Name }}' ({{ profile_moid }}) is {{ assignment_status }}{{ ' to server ' + assigned_server_moid if assignment_status == 'assigned' else '' }}"

@@ -8,28 +8,24 @@
     - credentials.yml
 
   vars:
-    # Runtime parameters - passed from previous steps or command line
-    org_moid: "{{ organization_moid | default('') }}"
-    pool_moid: "{{ resource_pool_moid | default('') }}"
-    template_moid: "{{ server_profile_template_moid | default('') }}"
-    profiles_to_create: "{{ server_profile_info | default([]) }}"
+    # Runtime parameters - must be passed via extra-vars
+    template_moid: "{{ server_profile_template_moid }}"
+    rp_moid: "{{ resource_pool_moid }}"
+    org_moid: "{{ organization_moid }}"
+    profiles_to_create: "{{ server_profiles | default([{'name': 'SP-001', 'description': 'Default server profile'}]) }}"
+    template_name: "{{ server_profile_template_name | default('Unknown Template') }}"
+    pool_name: "{{ resource_pool_name | default('Unknown Pool') }}"
 
   tasks:
-    - name: Validate required parameters
+    - name: "Validate required runtime parameters"
       fail:
-        msg: "Missing required parameter: {{ item }}"
-      when: vars[item] is not defined or vars[item] == ''
-      loop:
-        - org_moid
-        - pool_moid
-        - template_moid
+        msg: "Required parameters missing. Pass: -e 'server_profile_template_moid=xxx resource_pool_moid=yyy organization_moid=zzz'"
+      when: >
+        server_profile_template_moid is not defined or server_profile_template_moid == "" or
+        resource_pool_moid is not defined or resource_pool_moid == "" or
+        organization_moid is not defined or organization_moid == ""
 
-    - name: Validate server profile list
-      fail:
-        msg: "No server profiles specified to create"
-      when: profiles_to_create | length == 0
-
-    - name: Create Server Profiles from Template
+    - name: "Create Server Profile from Template"
       cisco.intersight.intersight_rest_api:
         api_key_id: "{{ intersight_api_key_id }}"
         api_private_key: "{{ intersight_api_private_key }}"
@@ -47,15 +43,17 @@
             Moid: "{{ template_moid }}"
           ServerPool:
             ObjectType: "resourcepool.Pool"
-            Moid: "{{ pool_moid }}"
+            Moid: "{{ rp_moid }}"
           Organization:
             ObjectType: "organization.Organization"
             Moid: "{{ org_moid }}"
           Tags:
             - Key: "configmode"
               Value: "ansible"
-            - Key: "automation.timestamp"
-              Value: "{{ ansible_date_time.iso8601 }}"
+            - Key: "source_template"
+              Value: "{{ template_name }}"
+            - Key: "resource_pool"
+              Value: "{{ pool_name }}"
       loop: "{{ profiles_to_create }}"
       loop_control:
         label: "{{ item.name }}"
@@ -68,3 +66,15 @@
           (Moid: {{ item.api_response.Moid }}) 
           Assigned server: {{ item.api_response.AssignedServer.Moid | default('not yet assigned') }}
       loop: "{{ server_profile_creation_result.results }}"
+
+    - name: "Standardized output"
+      set_fact:
+        workflow_results:
+          server_profiles:
+            created_profiles: "{{ server_profile_creation_result.results | map(attribute='api_response') | list }}"
+            profile_moids: "{{ server_profile_creation_result.results | map(attribute='api_response.Moid') | list }}"
+            template_used: "{{ template_name }}"
+            resource_pool_used: "{{ pool_name }}"
+            job_type: "create_server_profiles"
+            status: "success"
+            count: "{{ server_profile_creation_result.results | length }}"

@@ -8,15 +8,9 @@
     - credentials.yml
 
   vars:
-    # Runtime parameters - can be passed via -e or AWX
-    pool_name: "{{ resource_pool_name }}"
+      resource_pool_name: "{{ resource_pool_name | default('FredHutch_RP') }}"
 
   tasks:
-    - name: Validate required parameters
-      fail:
-        msg: "Missing required parameter: resource_pool_name"
-      when: pool_name is not defined or pool_name == ''
-
     - name: "Lookup Resource Pool by Name"
       cisco.intersight.intersight_rest_api:
         api_key_id: "{{ intersight_api_key_id }}"
@@ -24,24 +18,22 @@
         api_uri: "{{ intersight_base_url }}"
         resource_path: "/resourcepool/Pools"
         query_params:
-          $filter: "Name eq '{{ pool_name }}'"
+          $filter: "Name eq '{{ resource_pool_name }}'"
       register: resource_pool_lookup
 
-    - name: Validate resource pool found
-      fail:
-        msg: "No resource pool found with name '{{ pool_name }}'"
-      when: resource_pool_lookup.api_response is not defined or resource_pool_lookup.api_response.Moid is not defined
+    - name: "Debug Resource Pool Lookup"
+      debug:
+        var: resource_pool_lookup
 
-    - name: Set standard output
+    - name: "Check if resource pool exists"
+      fail:
+        msg: "No resource pool found with name '{{ resource_pool_name }}'"
+      when: resource_pool_lookup.api_response is not defined
+
+    - name: "Set fact for resource pool Moid"
       set_fact:
         resource_pool_moid: "{{ resource_pool_lookup.api_response.Moid }}"
-        workflow_results:
-          resource_pool:
-            name: "{{ pool_name }}"
-            moid: "{{ resource_pool_lookup.api_response.Moid }}"
-            job_type: "lookup_resource_pool"
-            status: "success"
 
-    - name: Display results
+    - name: "Debug resource pool Moid"
       debug:
-        msg: "Found resource pool '{{ pool_name }}' with MOID: {{ resource_pool_lookup.api_response.Moid }}"
+        var: resource_pool_moid

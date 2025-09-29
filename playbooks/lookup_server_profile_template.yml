@@ -6,45 +6,34 @@
 
   vars_files:
     - credentials.yml
-
+  
   vars:
-    # Runtime parameters - can be passed via -e or AWX
-    template_name: "{{ server_profile_template_name | default('') }}"
+    server_profile_template: "{{ server_profile_template_name }}"
 
   tasks:
-    - name: Validate required parameters
-      fail:
-        msg: "Missing required parameter: server_profile_template_name"
-      when: template_name is not defined or template_name == ''
-
-    - name: Lookup Server Profile Template by Name
+    - name: "Lookup Server Profile Template by Name"
       cisco.intersight.intersight_rest_api:
         api_key_id: "{{ intersight_api_key_id }}"
         api_private_key: "{{ intersight_api_private_key }}"
         api_uri: "{{ intersight_base_url }}"
         resource_path: "/server/ProfileTemplates"
         query_params:
-          $filter: "Name eq '{{ template_name }}'"
+          $filter: "Name eq '{{ server_profile_template }}'"
       register: template_lookup
 
-    - name: Validate server profile template found
-      fail:
-        msg: "No server profile template found with name '{{ template_name }}'"
-      when: template_lookup.api_response is not defined or template_lookup.api_response.Moid is not defined
-
-    - name: Set standard output
-      set_fact:
-        # Legacy compatibility
-        template_moid: "{{ template_lookup.api_response.Moid }}"
-        server_profile_template_moid: "{{ template_lookup.api_response.Moid }}"
-        # Standard output structure
-        workflow_results:
-          server_profile_template:
-            name: "{{ template_name }}"
-            moid: "{{ template_lookup.api_response.Moid }}"
-            job_type: "lookup_server_profile_template"
-            status: "success"
-
-    - name: Display results
+    - name: "Debug Template Lookup"
       debug:
-        msg: "Found server profile template '{{ template_name }}' with MOID: {{ template_lookup.api_response.Moid }}"
+        var: template_lookup
+
+    - name: "Check if template exists"
+      fail:
+        msg: "No server profile template found with name '{{ server_profile_template }}'"
+      when: template_lookup.api_response is not defined
+
+    - name: "Set fact for template Moid"
+      set_fact:
+        template_moid: "{{ template_lookup.api_response.Moid }}"
+
+    - name: "Debug template Moid"
+      debug:
+        var: template_moid
