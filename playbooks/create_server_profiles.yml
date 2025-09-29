@@ -7,6 +7,9 @@
   vars_files:
     - ticket.yml
 
+  vars:
+    workflow_results: {}
+
   tasks:
     - name: "Create Server Profile from Template"
       cisco.intersight.intersight_rest_api:
@@ -41,6 +44,11 @@
       loop_control:
         label: "{{ item.name }}"
       register: server_profile_creation_result
+
+    - name: "Standardized output"
+      set_fact:
+        workflow_results:
+          server_profiles: "{{ server_profile_creation_result.results }}"
 
     - name: Summarize created profiles
       debug:

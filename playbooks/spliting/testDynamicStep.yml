@@ -1,0 +1,10 @@
+---
+- name: Lookup Organization Moid Independently
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  tasks:
+    - name: "Display API data"
+      set_fact:
+        api_data: " {{organization.name}} {{ organization.data}}"

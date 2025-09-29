@@ -13,7 +13,6 @@
 
   tasks:
     - name: "Lookup Organization Moid"
-
       cisco.intersight.intersight_rest_api:
         api_key_id: "{{ intersight_api_key_id }}"
         api_private_key: "{{ intersight_api_private_key }}"
@@ -28,7 +27,7 @@
         workflow_results:
           organization:
             name: "{{ org_name | default(default_org_name) }}"
-            data: "{{ lookup_result }}"
+            data: "{{ lookup_result.api_response | default({}) }}"
             job_type: "lookup_organization"
             status: "success"
 
