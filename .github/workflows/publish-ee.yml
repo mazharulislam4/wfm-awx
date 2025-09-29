@@ -1,0 +1,67 @@
+name: Build & Publish AWX Execution Environment
+
+on:
+    workflow_dispatch:
+    push:
+        branches: [main]
+        paths:
+            - "ee/**"
+            - ".github/workflows/publish-ee.yml"
+
+permissions:
+    contents: read
+    packages: write # needed for GHCR with GITHUB_TOKEN
+
+env:
+    IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/wfm-ee
+    TAG: intersight-latest # choose your tag(s)
+
+jobs:
+    build-push:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            # Optional – speed up multi-arch, not required for simple amd64
+            # - name: Set up QEMU
+            #   uses: docker/setup-qemu-action@v3
+
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+
+            - name: Log in to GHCR
+              uses: docker/login-action@v3
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  # GITHUB_TOKEN is enough for repos in the same account/org
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Install ansible-builder
+              run: |
+                  python3 -m pip install --upgrade pip
+                  python3 -m pip install "ansible-builder>=3,<4"
+
+            - name: Generate Docker context with ansible-builder
+              run: |
+                  python3 -m ansible_builder build \
+                    -f ee/execution-environment.yml \
+                    -t local-dry-run:tmp \
+                    --container-runtime docker \
+                    --verbosity 3
+              # This creates ./context/ and ./context/Dockerfile we’ll use next
+
+            - name: Build & Push EE to GHCR
+              uses: docker/build-push-action@v5
+              with:
+                  context: context
+                  file: context/Dockerfile
+                  push: true
+                  tags: |
+                      ${{ env.IMAGE_NAME }}:${{ env.TAG }}
+                      ${{ env.IMAGE_NAME }}:latest
+                  # cache-from/ cache-to are optional but useful:
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max

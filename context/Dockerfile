@@ -53,8 +53,7 @@ RUN $PYCMD -m pip install --no-cache-dir bindep pyyaml packaging
 COPY --from=galaxy /usr/share/ansible /usr/share/ansible
 
 COPY _build/requirements.txt requirements.txt
-COPY _build/bindep.txt bindep.txt
-RUN $PYCMD /output/scripts/introspect.py introspect --user-pip=requirements.txt --user-bindep=bindep.txt --write-bindep=/tmp/src/bindep.txt --write-pip=/tmp/src/requirements.txt
+RUN $PYCMD /output/scripts/introspect.py introspect --user-pip=requirements.txt --write-bindep=/tmp/src/bindep.txt --write-pip=/tmp/src/requirements.txt
 RUN /output/scripts/assemble
 
 # Final build stage
