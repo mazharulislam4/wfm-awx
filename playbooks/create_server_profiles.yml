@@ -14,9 +14,6 @@
     template_moid: "{{ server_profile_template_moid | default('') }}"
     profiles_to_create: "{{ server_profile_info | default([]) }}"
 
-  vars:
-    workflow_results: {}
-
   tasks:
     - name: Validate required parameters
       fail:
