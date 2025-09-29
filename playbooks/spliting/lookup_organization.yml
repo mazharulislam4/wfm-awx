@@ -8,7 +8,7 @@
     - apiConfig.yml
 
   vars:
-    org_name: "{{ org_name | default('Default') }}"
+    default_org_name: "Default"
 
   tasks:
     - name: "Lookup Organization Moid"
@@ -18,12 +18,12 @@
         api_uri: "{{ intersight_base_url }}"
         resource_path: "/organization/Organizations"
         query_params:
-          $filter: "Name eq '{{ org_name }}'"
+          $filter: "Name eq '{{ org_name | default(default_org_name) }}'"
       register: lookup_result
 
     - name: "Check if organization Moid exists"
       fail:
-        msg: "No organization found with name '{{ org_name }}'"
+        msg: "No organization found with name '{{ org_name | default(default_org_name) }}'"
       when: lookup_result.api_response is not defined
 
     - name: "Set fact for resolved organization Moid"
