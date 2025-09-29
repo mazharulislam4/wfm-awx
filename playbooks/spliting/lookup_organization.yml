@@ -8,7 +8,7 @@
     - apiConfig.yml
 
   vars:
-    default_org_name: "Default"
+    default_org_name: "default"
 
   tasks:
     - name: "Lookup Organization Moid"
