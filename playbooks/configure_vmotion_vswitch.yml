@@ -5,46 +5,94 @@
   gather_facts: no
 
   vars_files:
-    - ticket.yml
+    - credentials.yml
+
+  vars:
+    # Runtime parameters - must be passed via extra-vars
+    # Required: esxi_host, esxi_username, esxi_password, vmotion_vswitch_name, vmotion_portgroup, vmotion_ip, vmotion_netmask
+    # Optional: vmotion_uplinks, vmotion_vlan_id
+    vmot_vswitch_name: "{{ vmotion_vswitch_name }}"
+    vmot_uplinks: "{{ vmotion_uplinks | default(['vmnic6', 'vmnic7']) }}"
+    vmot_portgroup: "{{ vmotion_portgroup }}"
+    vmot_vlan_id: "{{ vmotion_vlan_id | default(0) }}"
+    vmot_ip: "{{ vmotion_ip }}"
+    vmot_netmask: "{{ vmotion_netmask }}"
 
   tasks:
-    - name: Ensure vMotion vSwitch exists with vmnic6 + vmnic7
+    - name: "Validate required runtime parameters"
+      fail:
+        msg: "Required parameters missing. Need: esxi_host, esxi_username, esxi_password, vmotion_vswitch_name, vmotion_portgroup, vmotion_ip, vmotion_netmask"
+      when: >
+        esxi_host is not defined or esxi_host == "" or
+        esxi_username is not defined or esxi_username == "" or
+        esxi_password is not defined or esxi_password == "" or
+        vmot_vswitch_name is not defined or vmot_vswitch_name == "" or
+        vmot_portgroup is not defined or vmot_portgroup == "" or
+        vmot_ip is not defined or vmot_ip == "" or
+        vmot_netmask is not defined or vmot_netmask == ""
+    - name: Ensure vMotion vSwitch exists with specified uplinks
       community.vmware.vmware_vswitch:
-        hostname: "{{ os_install_input.mgmt_ip }}" # ESXi host or vCenter
-        username: "{{ os_install_input.install_hostname }}"
-        password: "{{ os_install_input.root_password }}"
+        hostname: "{{ esxi_host }}"
+        username: "{{ esxi_username }}"
+        password: "{{ esxi_password }}"
         validate_certs: false
-        esxi_hostname: "{{ os_install_input.mgmt_ip }}"
-        switch: "{{ conf_storage_vswitch_input.switch }}"
-        nics: "{{ conf_storage_vswitch_input.uplinks }}"
+        esxi_hostname: "{{ esxi_host }}"
+        switch: "{{ vmot_vswitch_name }}"
+        nics: "{{ vmot_uplinks }}"
         state: present
       delegate_to: localhost
+      register: vswitch_result
 
     - name: Ensure vMotion portgroup exists
       community.vmware.vmware_portgroup:
-        hostname: "{{ os_install_input.mgmt_ip }}" # ESXi host or vCenter
-        username: "{{ os_install_input.install_hostname }}"
-        password: "{{ os_install_input.root_password }}"
+        hostname: "{{ esxi_host }}"
+        username: "{{ esxi_username }}"
+        password: "{{ esxi_password }}"
         validate_certs: false
-        hosts: ["{{ os_install_input.mgmt_ip }}"]
-        switch: "{{ conf_storage_vswitch_input.switch }}"
-        portgroup: "{{ conf_storage_vswitch_input.portgroup }}"
+        hosts: ["{{ esxi_host }}"]
+        switch: "{{ vmot_vswitch_name }}"
+        portgroup: "{{ vmot_portgroup }}"
+        vlan_id: "{{ vmot_vlan_id }}"
         state: present
       delegate_to: localhost
+      register: portgroup_result
 
     - name: Create/Update vMotion VMkernel (assign your vMotion IP + enable vMotion)
       community.vmware.vmware_vmkernel:
-        hostname: "{{ os_install_input.mgmt_ip }}" # ESXi host or vCenter
-        username: "{{ os_install_input.install_hostname }}"
-        password: "{{ os_install_input.root_password }}"
+        hostname: "{{ esxi_host }}"
+        username: "{{ esxi_username }}"
+        password: "{{ esxi_password }}"
         validate_certs: false
-        esxi_hostname: "{{ os_install_input.mgmt_ip }}"
-        vswitch_name: "{{ conf_storage_vswitch_input.switch }}"
-        portgroup_name: "{{ conf_storage_vswitch_input.portgroup }}"
+        esxi_hostname: "{{ esxi_host }}"
+        vswitch_name: "{{ vmot_vswitch_name }}"
+        portgroup_name: "{{ vmot_portgroup }}"
         network:
           type: static
-          ip_address: "{{ conf_storage_vswitch_input.ip }}"
-          subnet_mask: "{{ conf_storage_vswitch_input.netmask }}"
+          ip_address: "{{ vmot_ip }}"
+          subnet_mask: "{{ vmot_netmask }}"
         enable_vmotion: true
         state: present
       delegate_to: localhost
+      register: vmkernel_result
+
+    - name: "Show vMotion vSwitch configuration result"
+      debug:
+        msg: "✅ vMotion vSwitch '{{ vmot_vswitch_name }}' configured with portgroup '{{ vmot_portgroup }}' and VMkernel IP {{ vmot_ip }} (vMotion enabled)"
+
+    - name: "Standardized output"
+      set_fact:
+        workflow_results:
+          vmotion_vswitch:
+            esxi_host: "{{ esxi_host }}"
+            vswitch_name: "{{ vmot_vswitch_name }}"
+            uplinks: "{{ vmot_uplinks }}"
+            portgroup: "{{ vmot_portgroup }}"
+            vlan_id: "{{ vmot_vlan_id }}"
+            vmkernel_ip: "{{ vmot_ip }}"
+            vmkernel_netmask: "{{ vmot_netmask }}"
+            vmotion_enabled: true
+            vswitch_status: "{{ 'configured' if vswitch_result.changed else 'already_configured' }}"
+            portgroup_status: "{{ 'configured' if portgroup_result.changed else 'already_configured' }}"
+            vmkernel_status: "{{ 'configured' if vmkernel_result.changed else 'already_configured' }}"
+            job_type: "configure_vmotion_vswitch"
+            status: "success"

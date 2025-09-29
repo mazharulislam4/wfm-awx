@@ -5,17 +5,58 @@
   gather_facts: no
 
   vars_files:
-    - ticket.yml
+    - credentials.yml
+
+  vars:
+    # Runtime parameters - can be passed via -e or AWX
+    esxi_hostname: "{{ mgmt_ip }}"
+    esxi_username: "{{ esxi_username }}"
+    esxi_password: "{{ esxi_password }}"
+    vswitch_name: "{{ vmnetwork_vswitch_name }}"
+    uplink_nics: "{{ vmnetwork_uplink_nics }}"
 
   tasks:
-    - name: Ensure VM Network vSwitch exists with vmnic4 + vmnic5
+    - name: Validate required parameters
+      fail:
+        msg: "Missing required parameter: {{ item }}"
+      when: vars[item] is not defined or vars[item] == ''
+      loop:
+        - esxi_hostname
+        - esxi_password
+
+    - name: Validate uplink NICs list
+      fail:
+        msg: "VM Network uplink NICs list cannot be empty"
+      when: uplink_nics is not defined or uplink_nics | length == 0
+
+    - name: Configure VM Network vSwitch
       community.vmware.vmware_vswitch:
-        hostname: "{{ os_install_input.mgmt_ip }}" # ESXi host or vCenter
-        username: "{{ os_install_input.install_hostname }}"
-        password: "{{ os_install_input.root_password }}"
+        hostname: "{{ esxi_hostname }}"
+        username: "{{ esxi_username }}"
+        password: "{{ esxi_password }}"
         validate_certs: false
-        esxi_hostname: "{{ os_install_input.mgmt_ip }}"
-        switch: "{{ conf_vmnetwork_vswitch_input.switch }}"
-        nics: "{{ conf_vmnetwork_vswitch_input.uplinks }}"
+        esxi_hostname: "{{ esxi_hostname }}"
+        switch: "{{ vswitch_name }}"
+        nics: "{{ uplink_nics }}"
         state: present
       delegate_to: localhost
+      register: vswitch_result
+
+    - name: Set standard output
+      set_fact:
+        # Legacy compatibility
+        vmnetwork_vswitch_result: "{{ vswitch_result }}"
+        # Standard output structure
+        workflow_results:
+          vmnetwork_vswitch:
+            esxi_host: "{{ esxi_hostname }}"
+            vswitch_name: "{{ vswitch_name }}"
+            uplink_nics: "{{ uplink_nics }}"
+            changed: "{{ vswitch_result.changed }}"
+            job_type: "configure_vmnetwork_vswitch"
+            status: "{{ 'success' if not vswitch_result.failed else 'failed' }}"
+            timestamp: "{{ ansible_date_time.iso8601 }}"
+
+    - name: Display results
+      debug:
+        msg: "VM Network vSwitch '{{ vswitch_name }}' configured on {{ esxi_hostname }} with uplinks: {{ uplink_nics | join(', ') }}{{ ' (changed)' if vswitch_result.changed else ' (no changes needed)' }}"

@@ -5,14 +5,39 @@
   gather_facts: no
 
   vars_files:
-    - ticket.yml
+    - credentials.yml
+
+  vars:
+    # Runtime parameters - can be passed via -e or AWX
+    network_id: "{{ network_cidr}}"
+    num_ips: "{{ number_of_ips }}"
+    api_url: "{{ infoblox_api_url  }}"
+    api_timeout: "{{ infoblox_timeout }}"
+    retry_count: "{{ api_retry_count }}"
+    retry_delay: "{{ api_retry_delay }}"
 
   tasks:
+    - name: Validate required parameters
+      fail:
+        msg: "Missing required parameter: {{ item }}"
+      when: vars[item] is not defined or vars[item] == ''
+      loop:
+        - network_id
+        - api_url
+
+    - name: Validate Infoblox credentials
+      fail:
+        msg: "Missing Infoblox credentials: {{ item }}"
+      when: vars[item] is not defined or vars[item] == ''
+      loop:
+        - infoblox_username
+        - infoblox_password
+
     - name: Encode credentials
       set_fact:
         ipam_auth_header: "Basic {{ (infoblox_username + ':' + infoblox_password) | b64encode }}"
 
-    - name: Get network reference (_ref) from Infoblox using network_id
+    - name: Get network reference from Infoblox
       uri:
         url: "{{ infoblox_api_url }}/network?network={{ fetch_ip_input.network_id | urlencode }}"
         method: GET
@@ -27,11 +52,11 @@
       retries: 3
       delay: 5
 
-    - name: Set network_ref from lookup response
+    - name: Set network reference from lookup response
       set_fact:
         network_ref: "{{ network_lookup.json[0]._ref }}"
 
-    - name: Fetch next available IP from selected network (Infoblox)
+    - name: Fetch next available IP(s) from network
       uri:
         url: "{{ infoblox_api_url }}/{{ network_ref }}?_function=next_available_ip"
         method: POST
@@ -50,10 +75,22 @@
       retries: 3
       delay: 5
 
-    - name: Set available IP
+    - name: Standard output
       set_fact:
         available_ip: "{{ ip_response.json.ips[0] }}"
+        # Standard output structure
+        workflow_results:
+          available_ips:
+            network: "{{ network_id }}"
+            network_ref: "{{ network_ref }}"
+            available_ips: "{{ ip_response.json.ips }}"
+            primary_ip: "{{ ip_response.json.ips[0] }}"
+            count_requested: "{{ num_ips }}"
+            count_returned: "{{ ip_response.json.ips | length }}"
+            job_type: "fetch_available_ip"
+            status: "success"
+            timestamp: "{{ ansible_date_time.iso8601 }}"
 
-    - name: Show available IP address
+    - name: Display results
       debug:
-        msg: "✅ available IP: {{ available_ip }}"
+        msg: "Successfully found {{ ip_response.json.ips | length }} available IP(s) in network {{ network_id }}: {{ ip_response.json.ips | join(', ') }}"

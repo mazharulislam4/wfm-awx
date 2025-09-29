@@ -5,48 +5,78 @@
   gather_facts: no
 
   vars_files:
-    - ticket.yml
+    - credentials.yml
+
+  vars:
+    # Runtime parameters - can be passed via -e or AWX
+    org_moid: "{{ organization_moid }}"
+    server_moid: "{{ server_moid }}"
+    server_object_type: "{{ server_object_type }}"
+    os_image_moid: "{{ os_image_moid }}"
+    scu_image_moid: "{{ scu_image_moid}}"
+    config_file_moid: "{{ config_file_moid }}"
+    install_hostname: "{{ install_hostname }}"
+    root_password: "{{ root_password }}"
+    dns_primary: "{{ dns_primary }}"
+    mgmt_ip: "{{ mgmt_ip }}"
+    mgmt_netmask: "{{ mgmt_netmask }}"
+    mgmt_gateway: "{{ mgmt_gateway }}"
 
   tasks:
+    - name: Validate required parameters
+      fail:
+        msg: "Missing required parameter: {{ item }}"
+      when: vars[item] is not defined or vars[item] == ''
+      loop:
+        - org_moid
+        - server_moid
+        - os_image_moid
+        - scu_image_moid
+        - config_file_moid
+        - root_password
+        - mgmt_ip
+        - mgmt_gateway
+
     - name: Trigger OS Install
       cisco.intersight.intersight_rest_api:
         api_key_id: "{{ intersight_api_key_id }}"
         api_private_key: "{{ intersight_api_private_key }}"
+        api_uri: "{{ intersight_base_url }}"
         resource_path: "/os/Installs"
         update_method: post
         api_body:
-          Description: "Performing OS Install through Ansible Code"
+          Description: "OS Install via Ansible - {{ ansible_date_time.iso8601 }}"
           InstallMethod: "vMedia"
           Image:
             ObjectType: "softwarerepository.OperatingSystemFile"
-            Moid: "{{ lookup_os_image_output.os_image_moid }}"
+            Moid: "{{ os_image_moid }}"
           OsduImage:
             ObjectType: "firmware.ServerConfigurationUtilityDistributable"
-            Moid: "{{ lookup_scu_image_output.scu_image_moid }}"
+            Moid: "{{ scu_image_moid }}"
           OverrideSecureBoot: true
           Organization:
             ObjectType: "organization.Organization"
-            Moid: "{{ organization_output.organization_moid }}"
+            Moid: "{{ org_moid }}"
           Server:
-            ObjectType: "{{ lookup_swsp_output.server_object_type }}"
-            Moid: "{{ lookup_swsp_output.server_moid }}"
+            ObjectType: "{{ server_object_type }}"
+            Moid: "{{ server_moid }}"
           ConfigurationFile:
             ObjectType: "os.ConfigurationFile"
-            Moid: "{{ lookup_os_config_output.config_file_moid }}"
+            Moid: "{{ config_file_moid }}"
           AdditionalParameters: null
           Answers:
-            Hostname: "{{ os_install_input.install_hostname }}"
+            Hostname: "{{ install_hostname }}"
             IpConfigType: "static"
-            RootPassword: "{{ os_install_input.root_password }}"
+            RootPassword: "{{ root_password }}"
             IsRootPasswordCrypted: false
-            Nameserver: "{{ os_install_input.dns_primary }}"
+            Nameserver: "{{ dns_primary }}"
             Source: "Template"
             IpConfiguration:
               ObjectType: "os.Ipv4Configuration"
               IpV4Config:
-                IpAddress: "{{ os_install_input.mgmt_ip }}"
-                Netmask: "{{ os_install_input.mgmt_netmask }}"
-                Gateway: "{{ os_install_input.mgmt_gw }}"
+                IpAddress: "{{ mgmt_ip }}"
+                Netmask: "{{ mgmt_netmask }}"
+                Gateway: "{{ mgmt_gateway }}"
           InstallTarget:
             ObjectType: "os.VirtualDrive"
             Name: "MStorBootVd"
@@ -54,6 +84,27 @@
             Id: "0"
       register: install_resp
 
-    - name: Show OS install response
+    - name: Validate OS install was triggered
+      fail:
+        msg: "OS install failed to trigger"
+      when: install_resp.api_response is not defined or install_resp.api_response.Moid is not defined
+
+    - name: Set standard output
+      set_fact:
+        # Legacy compatibility
+        os_install_result: "{{ install_resp.api_response }}"
+        # Standard output structure
+        workflow_results:
+          os_install:
+            install_moid: "{{ install_resp.api_response.Moid }}"
+            server_moid: "{{ server_moid }}"
+            mgmt_ip: "{{ mgmt_ip }}"
+            hostname: "{{ install_hostname }}"
+            install_method: "vMedia"
+            job_type: "os_install"
+            status: "initiated"
+            timestamp: "{{ ansible_date_time.iso8601 }}"
+
+    - name: Display results
       debug:
-        var: install_resp.api_response
+        msg: "OS install initiated successfully. Install ID: {{ install_resp.api_response.Moid }}, Target server: {{ server_moid }}, Management IP: {{ mgmt_ip }}"
