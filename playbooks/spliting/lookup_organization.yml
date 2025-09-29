@@ -9,9 +9,11 @@
 
   vars:
     default_org_name: "default"
+    workflow_results: {}
 
   tasks:
     - name: "Lookup Organization Moid"
+
       cisco.intersight.intersight_rest_api:
         api_key_id: "{{ intersight_api_key_id }}"
         api_private_key: "{{ intersight_api_private_key }}"
@@ -20,6 +22,15 @@
         query_params:
           $filter: "Name eq '{{ org_name | default(default_org_name) }}'"
       register: lookup_result
+
+    - name: "Standardized output"
+      set_fact:
+        workflow_results:
+          organization:
+            name: "{{ org_name | default(default_org_name) }}"
+            data: "{{ lookup_result }}"
+            job_type: "lookup_organization"
+            status: "success"
 
     - name: "Check if organization Moid exists"
       fail:
