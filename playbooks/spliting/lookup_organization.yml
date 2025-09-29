@@ -1,0 +1,35 @@
+---
+- name: Lookup Organization Moid Independently
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars_files:
+    - apiConfig.yml
+
+  vars:
+    org_name: "{{ org_name | default('Default') }}"
+
+  tasks:
+    - name: "Lookup Organization Moid"
+      cisco.intersight.intersight_rest_api:
+        api_key_id: "{{ intersight_api_key_id }}"
+        api_private_key: "{{ intersight_api_private_key }}"
+        api_uri: "{{ intersight_base_url }}"
+        resource_path: "/organization/Organizations"
+        query_params:
+          $filter: "Name eq '{{ org_name }}'"
+      register: lookup_result
+
+    - name: "Check if organization Moid exists"
+      fail:
+        msg: "No organization found with name '{{ org_name }}'"
+      when: lookup_result.api_response is not defined
+
+    - name: "Set fact for resolved organization Moid"
+      set_fact:
+        resolved_organization_moid: "{{ lookup_result.api_response.Moid }}"
+
+    - name: "Debug resolved organization Moid"
+      debug:
+        var: resolved_organization_moid
