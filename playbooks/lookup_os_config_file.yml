@@ -5,18 +5,49 @@
   gather_facts: no
 
   vars_files:
-    - ticket.yml
+    - credentials.yml
+
+  vars:
+    # Runtime parameter - must be passed via extra-vars
+    cfg_file_name: "{{ config_file_name }}"
 
   tasks:
+    - name: "Validate required runtime parameters"
+      fail:
+        msg: "config_file_name is required. Pass it with -e 'config_file_name=ESXi7.0ConfigFile'"
+      when: config_file_name is not defined or config_file_name == ""
     - name: Lookup OS Configuration File by name
       cisco.intersight.intersight_rest_api:
         api_key_id: "{{ intersight_api_key_id }}"
         api_private_key: "{{ intersight_api_private_key }}"
+        api_uri: "{{ intersight_base_url }}"
         resource_path: "/os/ConfigurationFiles"
         query_params:
-          $filter: "Name eq '{{ lookup_os_config_input.config_file_name }}'"
+          $filter: "Name eq '{{ cfg_file_name }}'"
           $select: "Moid,Name"
       register: config_lookup
 
-    - debug:
-        msg: "{{ config_lookup.api_response.Moid }}"
+    - name: "Check if OS config file exists"
+      fail:
+        msg: "No OS configuration file found with name '{{ cfg_file_name }}'"
+      when: config_lookup.api_response is not defined or config_lookup.api_response | length == 0
+
+    - name: "Set OS config file moid as fact"
+      set_fact:
+        os_config_file_moid: "{{ config_lookup.api_response.Moid }}"
+
+    - name: "Standardized output"
+      set_fact:
+        workflow_results:
+          os_config_file:
+            name: "{{ cfg_file_name }}"
+            moid: "{{ os_config_file_moid }}"
+            data: "{{ config_lookup }}"
+            job_type: "lookup_os_config_file"
+            status: "success"
+
+    - name: "Debug resolved OS config file moid"
+      debug:
+        msg: "OS config file '{{ cfg_file_name }}' resolved to moid: {{ os_config_file_moid }}"
+
+

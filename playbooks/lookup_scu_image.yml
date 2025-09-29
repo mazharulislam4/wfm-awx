@@ -1,22 +1,53 @@
 ---
-- name: Lookup OS Configuration File Moid
+- name: Lookup SCU Image Moid Independently
   hosts: localhost
   connection: local
   gather_facts: no
 
   vars_files:
-    - ticket.yml
+    - credentials.yml
+
+  vars:
+    # Runtime parameter - must be passed via extra-vars
+    scu_image: "{{ scu_image_name }}"
 
   tasks:
+    - name: "Validate required runtime parameters"
+      fail:
+        msg: "scu_image_name is required. Pass it with -e 'scu_image_name=ucs-scu-7.1.4.250200'"
+      when: scu_image is not defined or scu_image == ""
     - name: Lookup SCU image MOID by name
       cisco.intersight.intersight_rest_api:
         api_key_id: "{{ intersight_api_key_id }}"
         api_private_key: "{{ intersight_api_private_key }}"
+        api_uri: "{{ intersight_base_url }}"
         resource_path: "/firmware/ServerConfigurationUtilityDistributables"
         query_params:
-          $filter: "Name eq '{{ lookup_scu_image_input.scu_image_name }}'"
+          $filter: "Name eq '{{ scu_image }}'"
           $select: "Moid,Name"
       register: scu_lookup
 
-    - debug:
-        msg: "{{ scu_lookup.api_response.Moid }}"
+    - name: "Check if SCU image exists"
+      fail:
+        msg: "No SCU image found with name '{{ scu_image }}'"
+      when: scu_lookup.api_response is not defined or scu_lookup.api_response | length == 0
+
+    - name: "Set SCU image moid as fact"
+      set_fact:
+        scu_image_moid: "{{ scu_lookup.api_response.Moid }}"
+
+    - name: "Standardized output"
+      set_fact:
+        workflow_results:
+          scu_image:
+            name: "{{ scu_image }}"
+            moid: "{{ scu_image_moid }}"
+            data: "{{ scu_lookup }}"
+            job_type: "lookup_scu_image"
+            status: "success"
+
+    - name: "Debug resolved SCU image moid"
+      debug:
+        msg: "SCU image '{{ scu_image }}' resolved to moid: {{ scu_image_moid }}"
+
+

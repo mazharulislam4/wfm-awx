@@ -5,7 +5,12 @@
   gather_facts: no
 
   vars_files:
-    - ticket.yml
+    - credentials.yml
+
+
+  vars:
+    # Runtime parameters - can be passed via -e or AWX
+    org_name: "{{ organization_name | default('default') }}"
 
   tasks:
     - name: "Lookup Organization Moid"
@@ -15,17 +20,27 @@
         api_uri: "{{ intersight_base_url }}"
         resource_path: "/organization/Organizations"
         query_params:
-          $filter: "Name eq '{{ organization_input.organization_name }}'"
+          $filter: "Name eq '{{ org_name }}'"
       register: lookup_result
 
     - name: "Check if organization Moid exists"
       fail:
-        msg: "No organization found with name '{{ organization_input.organization_name }}'"
-      when: lookup_result.api_response is not defined
+        msg: "No organization found with name '{{ org_name }}'"
+      when: lookup_result.api_response is not defined or lookup_result.api_response.Moid is not defined
 
     - name: "Set fact for resolved organization Moid"
       set_fact:
         resolved_organization_moid: "{{ lookup_result.api_response.Moid }}"
+        organization_moid: "{{ lookup_result.api_response.Moid }}"
+
+    - name: "Standardized output"
+      set_fact:
+        workflow_results:
+          organization:
+            name: "{{ org_name }}"
+            moid: "{{ lookup_result.api_response.Moid }}"
+            job_type: "lookup_organization"
+            status: "success"
 
     - name: "Debug resolved organization Moid"
       debug:

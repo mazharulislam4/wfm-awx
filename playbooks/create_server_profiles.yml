@@ -5,13 +5,34 @@
   gather_facts: no
 
   vars_files:
-    - ticket.yml
+    - credentials.yml
+
+  vars:
+    # Runtime parameters - passed from previous steps or command line
+    org_moid: "{{ organization_moid | default('') }}"
+    pool_moid: "{{ resource_pool_moid | default('') }}"
+    template_moid: "{{ server_profile_template_moid | default('') }}"
+    profiles_to_create: "{{ server_profile_info | default([]) }}"
 
   vars:
     workflow_results: {}
 
   tasks:
-    - name: "Create Server Profile from Template"
+    - name: Validate required parameters
+      fail:
+        msg: "Missing required parameter: {{ item }}"
+      when: vars[item] is not defined or vars[item] == ''
+      loop:
+        - org_moid
+        - pool_moid
+        - template_moid
+
+    - name: Validate server profile list
+      fail:
+        msg: "No server profiles specified to create"
+      when: profiles_to_create | length == 0
+
+    - name: Create Server Profiles from Template
       cisco.intersight.intersight_rest_api:
         api_key_id: "{{ intersight_api_key_id }}"
         api_private_key: "{{ intersight_api_private_key }}"
@@ -26,21 +47,19 @@
           ServerAssignmentMode: "Pool"
           SrcTemplate:
             ObjectType: "server.ProfileTemplate"
-            Moid: "{{ spt_output.server_profile_template_moid }}"
+            Moid: "{{ template_moid }}"
           ServerPool:
             ObjectType: "resourcepool.Pool"
-            Moid: "{{ rc_output.resource_pool_moid }}"
+            Moid: "{{ pool_moid }}"
           Organization:
             ObjectType: "organization.Organization"
-            Moid: "{{ organization_output.organization_moid }}"
+            Moid: "{{ org_moid }}"
           Tags:
             - Key: "configmode"
               Value: "ansible"
-            - Key: "source_template"
-              Value: "{{ spt_input.server_profile_template_name }}"
-            - Key: "resource_pool"
-              Value: "{{ rc_input.resource_pool_name }}"
-      loop: "{{ server_profile_input.server_profile_info }}"
+            - Key: "automation.timestamp"
+              Value: "{{ ansible_date_time.iso8601 }}"
+      loop: "{{ profiles_to_create }}"
       loop_control:
         label: "{{ item.name }}"
       register: server_profile_creation_result

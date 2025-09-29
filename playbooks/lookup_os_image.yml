@@ -5,18 +5,47 @@
   gather_facts: no
 
   vars_files:
-    - ticket.yml
+    - credentials.yml
+
+  vars:
+    # Runtime parameter - must be passed via extra-vars
+    os_image_name: "{{ os_image_name }}"
 
   tasks:
+    - name: "Validate required runtime parameters"
+      fail:
+        msg: "os_image_name is required. Pass it with -e 'os_image_name=VMware ESXi 7 Update 3'"
+      when: os_image_name is not defined or os_image_name == ""
     - name: Lookup OS image MOID by name
       cisco.intersight.intersight_rest_api:
         api_key_id: "{{ intersight_api_key_id }}"
         api_private_key: "{{ intersight_api_private_key }}"
+        api_uri: "{{ intersight_base_url }}"
         resource_path: "/softwarerepository/OperatingSystemFiles"
         query_params:
-          $filter: "Name eq '{{ lookup_os_image_input.os_image_name }}'"
+          $filter: "Name eq '{{ os_image_name }}'"
           $select: "Moid,Name"
       register: os_lookup
 
-    - debug:
-        msg: "{{ os_lookup.api_response.Moid }}"
+    - name: "Check if OS image exists"
+      fail:
+        msg: "No OS image found with name '{{ os_image_name }}'"
+      when: os_lookup.api_response is not defined or os_lookup.api_response | length == 0
+
+    - name: "Set OS image moid as fact"
+      set_fact:
+        os_image_moid: "{{ os_lookup.api_response.Moid }}"
+
+    - name: "Debug resolved OS image moid"
+      debug:
+        msg: "OS image '{{ os_image_name }}' resolved to moid: {{ os_image_moid }}"
+
+    - name: "Standardized output"
+      set_fact:
+        workflow_results:
+          os_image:
+            name: "{{ os_image_name }}"
+            moid: "{{ os_image_moid }}"
+            data: "{{ os_lookup }}"
+            job_type: "lookup_os_image"
+            status: "success"
