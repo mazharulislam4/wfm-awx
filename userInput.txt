@@ -1,0 +1,12 @@
+organization_name (text)  default 
+resource_pool_name (text) FredHutch_RP
+server_profile_template_name (text) VZURE_UCSX_SP_TEMPLATE
+
+
+------for create server profile --------
+profile_name
+profile_description
+
+------ fetch avaiable ips---------
+network_cidr
+number_of_ips
