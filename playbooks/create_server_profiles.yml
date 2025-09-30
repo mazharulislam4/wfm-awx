@@ -9,7 +9,7 @@
 
   vars:
     # Runtime parameters - passed from previous steps or command line
-    org_moid: "{{ steps.step1.organization.moid | organization.moid | organization.moid | default('') }}"
+    org_moid: "{{ steps.step1.organization.moid | organization.moid | organization_moid | default('') }}"
     pool_moid: "{{ steps.step2.resource_pool.moid | resource_pool.moid | resource_pool_moid | default('') }}"
     template_moid: "{{ server_profile_template.moid | steps.step3.server_profile_template.moid | server_profile_template_moid | default('') }}"
     profiles_to_create: >-
