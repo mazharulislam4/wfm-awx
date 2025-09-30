@@ -42,12 +42,10 @@
           os_config_file:
             name: "{{ cfg_file_name }}"
             moid: "{{ os_config_file_moid }}"
-            data: "{{ config_lookup }}"
+            data: "{{  config_lookup.api_response | default({}) }}"
             job_type: "lookup_os_config_file"
             status: "success"
 
     - name: "Debug resolved OS config file moid"
       debug:
         msg: "OS config file '{{ cfg_file_name }}' resolved to moid: {{ os_config_file_moid }}"
-
-

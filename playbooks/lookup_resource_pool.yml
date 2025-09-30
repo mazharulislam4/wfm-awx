@@ -38,7 +38,8 @@
         workflow_results:
           resource_pool:
             name: "{{ pool_name }}"
-            moid: "{{ resource_pool_lookup.api_response.Moid }}"
+            moid: "{{ resource_pool_lookup.api_response.Moid | default('') }}"
+            data: "{{ resource_pool_lookup.api_response | default({}) }}"
             job_type: "lookup_resource_pool"
             status: "success"
 

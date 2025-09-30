@@ -41,7 +41,8 @@
         workflow_results:
           server_profile_template:
             name: "{{ template_name }}"
-            moid: "{{ template_lookup.api_response.Moid }}"
+            moid: "{{ template_lookup.api_response.Moid | default('') }}"
+            data: "{{ template_lookup.api_response | default({}) }}"
             job_type: "lookup_server_profile_template"
             status: "success"
 

@@ -9,7 +9,7 @@
 
   vars:
     # Runtime parameters - can be passed via -e or AWX
-    profile_moid: "{{ server_profile_moid}}"
+    profile_moid: "{{ server_profile_moid |  server_profile_template.moid | default('') }}"
 
   tasks:
     - name: Validate required parameters
@@ -53,6 +53,7 @@
             server_object_type: "{{ assigned_server_object_type }}"
             assignment_status: "{{ assignment_status }}"
             job_type: "lookup_server_with_server_profile"
+            data: "{{ profile_details.api_response | default({}) }}"
             status: "success"
 
     - name: Display results

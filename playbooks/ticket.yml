@@ -90,7 +90,7 @@ lookup_swsp_output:
   # success confirmation
 
 # Step 9: Fetch OS Image
-# File Associated: lookup_os_config_file.yml
+# File Associated: lookup_os_image.yml
 lookup_os_image_input:
   os_image_name: "VMware ESXi 7 Update 3"
 lookup_os_image_output:

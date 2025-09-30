@@ -7,7 +7,6 @@
   vars_files:
     - credentials.yml
 
-
   vars:
     # Runtime parameters - can be passed via -e or AWX
     org_name: "{{ organization_name | default('default') }}"
@@ -38,7 +37,8 @@
         workflow_results:
           organization:
             name: "{{ org_name }}"
-            moid: "{{ lookup_result.api_response.Moid }}"
+            moid: "{{ lookup_result.api_response.Moid | default('') }}"
+            data: "{{ lookup_result.api_response | default({}) }}"
             job_type: "lookup_organization"
             status: "success"
 
