@@ -2,36 +2,45 @@
 - name: Configure VMNetwork vSwitch
   hosts: localhost
   connection: local
-  gather_facts: no
+  gather_facts: yes
 
   vars_files:
     - credentials.yml
 
   vars:
-    # Runtime parameters - must be passed via extra-vars
-    # Required: esxi_host, esxi_username, esxi_password, vmnetwork_vswitch_name
-    # Optional: vmnetwork_uplinks
-    vmnet_vswitch_name: "{{ vmnetwork_vswitch_name }}"
-    vmnet_uplinks: "{{ vmnetwork_uplinks | default(['vmnic4', 'vmnic5']) }}"
+    # Runtime parameters - can be passed via -e or AWX or chained from previous steps
+    # mgmt_ip from Step 12 which is the host now
+    # install_hostname from Step 12 which is username
+    # root_password from Step 12
+    esxi_hostname: "{{ steps.step12.mgmt_ip | default(mgmt_ip) | default('') }}"
+    esxi_username: "{{ steps.step12.install_hostname | default(esxi_username) | default('root') }}"
+    esxi_password: "{{ steps.step12.root_password | default(esxi_password) | default('') }}"
+    switch_name: "{{ vmnetwork_vswitch_name | default('vSwitch2') }}"
+    nic_list: "{{ vmnetwork_uplink_nics | default(['vmnic4', 'vmnic5']) }}"
 
   tasks:
     - name: "Validate required runtime parameters"
       fail:
-        msg: "Required parameters missing. Need: esxi_host, esxi_username, esxi_password, vmnetwork_vswitch_name"
-      when: >
-        esxi_host is not defined or esxi_host == "" or
-        esxi_username is not defined or esxi_username == "" or
-        esxi_password is not defined or esxi_password == "" or
-        vmnet_vswitch_name is not defined or vmnet_vswitch_name == ""
-    - name: Ensure VM Network vSwitch exists with specified uplinks
+        msg: "Missing required parameter: {{ item }}"
+      when: vars[item] is not defined or vars[item] == ''
+      loop:
+        - esxi_hostname
+        - esxi_password
+
+    - name: Validate uplink NICs list
+      fail:
+        msg: "VM Network uplink NICs list cannot be empty"
+      when: nic_list is not defined or nic_list | length == 0
+
+    - name: Configure VM Network vSwitch
       community.vmware.vmware_vswitch:
         hostname: "{{ esxi_host }}"
         username: "{{ esxi_username }}"
         password: "{{ esxi_password }}"
         validate_certs: false
-        esxi_hostname: "{{ esxi_host }}"
-        switch: "{{ vmnet_vswitch_name }}"
-        nics: "{{ vmnet_uplinks }}"
+        esxi_hostname: "{{ esxi_hostname }}"
+        switch: "{{ switch_name }}"
+        nics: "{{ nic_list }}"
         state: present
       delegate_to: localhost
       register: vswitch_result
@@ -44,10 +53,14 @@
       set_fact:
         workflow_results:
           vmnetwork_vswitch:
-            esxi_host: "{{ esxi_host }}"
-            vswitch_name: "{{ vmnet_vswitch_name }}"
-            uplinks: "{{ vmnet_uplinks }}"
-            configuration_status: "{{ 'configured' if vswitch_result.changed else 'already_configured' }}"
-            data: "{{ vswitch_result }}"
+            esxi_host: "{{ esxi_hostname }}"
+            vswitch_name: "{{ switch_name }}"
+            uplink_nics: "{{ nic_list }}"
+            changed: "{{ vswitch_result.changed }}"
             job_type: "configure_vmnetwork_vswitch"
-            status: "success"
+            status: "{{ 'success' if not vswitch_result.failed else 'failed' }}"
+            timestamp: "{{ ansible_date_time.iso8601 }}"
+
+    - name: Display results
+      debug:
+        msg: "VM Network vSwitch '{{ switch_name }}' configured on {{ esxi_hostname }} with uplinks: {{ nic_list | join(', ') }}{{ ' (changed)' if vswitch_result.changed else ' (no changes needed)' }}"

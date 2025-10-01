@@ -2,61 +2,111 @@
 - name: Fetch available IP in Infoblox
   hosts: localhost
   connection: local
-  gather_facts: no
+  gather_facts: yes
 
   vars_files:
     - credentials.yml
 
   vars:
-    # Runtime parameter - must be passed via extra-vars
-    network_id: "{{ network_id }}"
+    # Runtime parameters - can be passed via -e or AWX or chained from previous steps
+    network_id: "{{ network_cidr | default(fetch_ip_input.network_id | default('')) }}"
+    num_ips: "{{ number_of_ips | default(1) }}"
+    api_url: "{{ infoblox_api_url | default('') }}"
+    api_timeout: "{{ infoblox_timeout | default(30) }}"
+    retry_count: "{{ api_retry_count | default(3) }}"
+    retry_delay: "{{ api_retry_delay | default(5) }}"
 
   tasks:
-    - name: "Validate required runtime parameters"
+    - name: Debug current variable values
+      debug:
+        msg:
+          - "network_id: '{{ network_id }}'"
+          - "api_url: '{{ api_url }}'"
+          - "num_ips: {{ num_ips }}"
+
+    - name: Validate required parameters
       fail:
-        msg: "network_id is required. Pass it with -e 'network_id=10.50.1.0/24'"
-      when: network_id is not defined or network_id == ""
+        msg: "Missing required parameter: {{ item }} (value: '{{ vars[item] | default('UNDEFINED') }}')"
+      when: vars[item] is not defined or vars[item] == '' or vars[item] == None
+      loop:
+        - network_id
+        - api_url
+
+    - name: Validate Infoblox credentials
+      fail:
+        msg: "Missing Infoblox credentials: {{ item }}"
+      when: vars[item] is not defined or vars[item] == ''
+      loop:
+        - infoblox_username
+        - infoblox_password
+
     - name: Encode credentials
       set_fact:
         ipam_auth_header: "Basic {{ (infoblox_username + ':' + infoblox_password) | b64encode }}"
 
-    - name: Get network reference (_ref) from Infoblox using network_id
+    - name: List available networks for debugging (if network lookup fails)
       uri:
-        url: "{{ infoblox_api_url }}/network?network={{ network_id | urlencode }}"
+        url: "{{ api_url }}/network"
         method: GET
         headers:
           Authorization: "{{ ipam_auth_header }}"
         return_content: true
         validate_certs: false
-        timeout: 30
-      register: network_lookup
-      failed_when:
-        - network_lookup.status != 200 or (network_lookup.json | length == 0)
-      retries: 3
-      delay: 5
+        timeout: "{{ api_timeout }}"
+      register: available_networks
+      ignore_errors: true
 
-    - name: Set network_ref from lookup response
+    - name: Get network reference from Infoblox
+      uri:
+        url: "{{ api_url }}/network?network={{ network_id | urlencode }}"
+        method: GET
+        headers:
+          Authorization: "{{ ipam_auth_header }}"
+        return_content: true
+        validate_certs: false
+        timeout: "{{ api_timeout }}"
+      register: network_lookup
+      failed_when: false # Don't fail immediately, handle the error below
+      retries: "{{ retry_count }}"
+      delay: "{{ retry_delay }}"
+
+    - name: Handle network not found error
+      fail:
+        msg: |
+          Network '{{ network_id }}' not found in Infoblox!
+          Available networks in Infoblox:
+          {% for net in available_networks.json | default([]) %}
+          - {{ net.network }}
+          {% endfor %}
+
+          Please check:
+          1. The network CIDR is correct
+          2. The network exists in Infoblox
+          3. You have permissions to access the network
+      when: network_lookup.status != 200 or (network_lookup.json | length == 0)
+
+    - name: Set network reference from lookup response
       set_fact:
         network_ref: "{{ network_lookup.json[0]._ref }}"
 
     - name: Fetch next available IP from selected network (Infoblox)
       uri:
-        url: "{{ infoblox_api_url }}/{{ network_ref }}?_function=next_available_ip"
+        url: "{{ api_url }}/{{ network_ref }}?_function=next_available_ip"
         method: POST
         headers:
           Authorization: "{{ ipam_auth_header }}"
           Content-Type: "application/json"
-        body: '{ "num": 1 }'
+        body: '{ "num": {{ num_ips }} }'
         body_format: json
         validate_certs: false
         return_content: true
-        timeout: 30
+        timeout: "{{ api_timeout }}"
       register: ip_response
       failed_when:
         - ip_response.status != 200
         - ip_response.json.ips is not defined or ip_response.json.ips | length == 0
-      retries: 3
-      delay: 5
+      retries: "{{ retry_count }}"
+      delay: "{{ retry_delay }}"
 
     - name: Set available IP
       set_fact:

@@ -67,6 +67,8 @@
       set_fact:
         workflow_results:
           server_profiles: "{{ server_profile_creation_result.results }}"
+        # Output for step chaining
+        server_profile_moid: "{{ server_profile_creation_result.results[0].api_response.Moid }}"
 
     - name: Summarize created profiles
       debug:

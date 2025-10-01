@@ -8,10 +8,13 @@
     - credentials.yml
 
   vars:
-    # Runtime parameters - must be passed via extra-vars
-    reservation_name: "{{ name }}"
-    ip_to_reserve: "{{ available_ip }}"
-    reservation_comment: "{{ comment | default('Reserved via Ansible') }}"
+    # Runtime parameters - can be passed via -e or AWX or chained from fetch_available_ip.yml
+    reservation_name: "{{ ip_reservation_name | steps.step5.available_ips.network | network_id | default('auto-reserved-ip') }}"
+    ip_address: "{{ ip_address_to_reserve | steps.step5.available_ips.primary_ip | workflow_results.available_ips.primary_ip | available_ip | default('') }}"
+    comment: "{{ reservation_comment | default('Reserved via Ansible automation') }}"
+    match_client: "{{ match_client_type | default('RESERVED') }}"
+    api_url: "{{ infoblox_api_url | default('') }}"
+    api_timeout: "{{ infoblox_timeout | default(30) }}"
 
   tasks:
     - name: "Validate required runtime parameters"
@@ -32,7 +35,7 @@
           Authorization: "{{ ipam_auth_header }}"
           Content-Type: "application/json"
         body_format: json
-        body: 
+        body:
           name: "{{ reservation_name }}"
           ipv4addr: "{{ ip_to_reserve }}"
           comment: "{{ reservation_comment }}"
