@@ -18,6 +18,9 @@ profile_description
 network_cidr
 number_of_ips
 
+---- Reserve Ip -------
+ip_reservation_name
+
 ------- fetch os image ---------
 os_image_name
 
