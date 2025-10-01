@@ -10,7 +10,7 @@
   vars:
     # Runtime parameters - passed from previous steps or command line
     # Fixed: Use proper fallback syntax
-    org_moid: "{{ organization_moid | default(organization.moid | default(steps.step1.organization.moid | default(''))) }}"
+    org_moid: "{{ Lookup_Organization_Moid.moid | default(organization.moid | default(steps.step1.organization.moid | default(''))) }}"
     pool_moid: "{{ resource_pool_moid | default(resource_pool.moid | default(steps.step2.resource_pool.moid | default(''))) }}"
     template_moid: "{{ server_profile_template_moid | default(server_profile_template.moid | default(steps.step3.server_profile_template.moid | default(''))) }}"
 
