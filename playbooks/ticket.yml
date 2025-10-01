@@ -46,7 +46,7 @@ server_profile_input:
   # resource_pool_name, resource_pool_moid from Step 2
   # organization_moid from Step 1
 server_profile_output:
-  server_profile_moid: "68d5bad777696e3201f63e18" # Get the created server profile moids
+  server_profile_moid: "68d5bad777696e3201f63e18" "68dd707577696e32010ee534" # Get the created server profile moids
   # Only success confirmation
 
 # Step 5: Fetch Next Available IP

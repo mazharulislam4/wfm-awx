@@ -35,14 +35,10 @@
           $filter: "Moid eq '{{ profile_moid }}'"
       register: profile_details
 
-    - name: "Debug resolved profile details"
-      debug:
-        var: profile_details
-
-    - name: Fail if profile not found
+    - name: Validate profile found
       fail:
         msg: "Server profile with Moid {{ profile_moid }} not found"
-      when: profile_details.api_response | length == 0 or profile_details.api_response.Moid is not defined
+      when: profile_details.api_response is not defined or profile_details.api_response.Moid is not defined
 
     - name: Determine server assignment status
       set_fact:
@@ -54,12 +50,10 @@
       set_fact:
         workflow_results:
           server_assignment:
-            profile_moid: "{{ profile_moid }}"
-            profile_name: "{{ profile_details.api_response.Name | default('Unknown') }}"
+            profile_name: "{{ profile_details.api_response.Name }}"
             server_moid: "{{ assigned_server_moid }}"
             server_object_type: "{{ assigned_server_object_type }}"
-            assignment_status: "{{ 'assigned' if assigned_server_moid != 'none' else 'unassigned' }}"
-            data: "{{ profile_details }}"
+            assgnmnt_status: "{{ assignment_status }}"
             job_type: "lookup_server_with_server_profile"
             status: "success"
             timestamp: "{{ ansible_date_time.iso8601 }}"

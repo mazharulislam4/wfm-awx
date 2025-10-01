@@ -12,14 +12,14 @@
     # mgmt_ip from Step 12 which is the host now
     # install_hostname from Step 12 which is username
     # root_password from Step 12
-    esxi_hostname: "{{ steps.step12.mgmt_ip | default(mgmt_ip) | default('') }}"
-    esxi_username: "{{ steps.step12.install_hostname | default(esxi_username) | default('root') }}"
-    esxi_password: "{{ steps.step12.root_password | default(esxi_password) | default('') }}"
+    esxi_hostname: "{{ steps.step12.os_installation.management_ip | default(mgmt_ip) | default('') }}"
+    esxi_username: "{{ steps.step12.os_installation.hostname | default(esxi_username) | default('root') }}"
+    esxi_password: "{{ steps.step12.os_installation.password | default(esxi_password) | default('') }}"
     switch_name: "{{ storage_vswitch_name | default('vSwitch1') }}"
-    nic_list: "{{ storage_uplink_nics | default(['vmnic2', 'vmnic3']) }}"
+    nic_list: "{{ storage_uplink_nics.split(',') | map('trim') | list | default(['vmnic2', 'vmnic3']) }}"
     pg_name: "{{ storage_portgroup_name | default('Storage') }}"
     vlan_number: "{{ storage_vlan_id | default('0') }}"
-    storage_address: "{{ steps.step6.ip_address | default(storage_ip_address) | default('') }}"
+    storage_address: "{{ storage_ip_address | default('') }}"
     storage_mask: "{{ storage_subnet_mask | default('255.255.255.0') }}"
 
   tasks:

@@ -10,35 +10,35 @@
   vars:
     # Runtime parameters - can be passed via -e or AWX
     org_moid: "{{ steps.step1.organization_moid | default(organization_moid) | default('') }}"
-    server_moid: "{{ steps.step5.server_moid | default(server_moid) | default('') }}"
-    server_object_type: "{{ steps.step5.server_object_type | default(server_object_type) | default('') }}"
-    os_image_moid: "{{ steps.step6.os_image_moid | default(os_image_moid) | default('') }}"
-    scu_image_moid: "{{ steps.step7.scu_image_moid | default(scu_image_moid) | default('') }}"
-    config_file_moid: "{{ steps.step8.config_file_moid | default(config_file_moid) | default('') }}"
-    install_hostname: "{{ steps.step9.hostname | default(install_hostname) | default('') }}"
-    root_password: "{{ root_password }}"
-    dns_primary: "{{ dns_primary }}"
-    mgmt_ip: "{{ steps.step6.mgmt_ip | default(mgmt_ip) | default('') }}"
-    mgmt_netmask: "{{ mgmt_netmask }}"
-    mgmt_gw: "{{ mgmt_gw }}"
+    srvr_moid: "{{ steps.step5.server_moid | default(server_moid) | default('') }}"
+    srvr_object_type: "{{ steps.step5.server_object_type | default(server_object_type) | default('') }}"
+    os_img_moid: "{{ steps.step6.os_image_moid | default(os_image_moid) | default('') }}"
+    scu_img_moid: "{{ steps.step7.scu_image_moid | default(scu_image_moid) | default('') }}"
+    cnfg_file_moid: "{{ steps.step8.config_file_moid | default(config_file_moid) | default('') }}"
+    hostname: "{{ steps.step9.hostname | default(install_hostname) | default('') }}"
+    password: "{{ root_password }}"
+    dns_primary_address: "{{ dns_primary }}"
+    management_ip: "{{ steps.step6.mgmt_ip | default(mgmt_ip) | default('') }}"
+    management_netmask: "{{ mgmt_netmask }}"
+    management_gw: "{{ mgmt_gw }}"
 
   tasks:
     - name: "Validate required runtime parameters"
       fail:
         msg: "Required parameters missing. Pass all required moids and network configuration via -e flags"
       when: >
-        organization_moid is not defined or organization_moid == "" or
-        server_moid is not defined or server_moid == "" or
-        server_object_type is not defined or server_object_type == "" or
-        os_image_moid is not defined or os_image_moid == "" or
-        config_file_moid is not defined or config_file_moid == "" or
-        scu_image_moid is not defined or scu_image_moid == "" or
-        install_hostname is not defined or install_hostname == "" or
-        root_password is not defined or root_password == "" or
-        dns_primary is not defined or dns_primary == "" or
-        mgmt_ip is not defined or mgmt_ip == "" or
-        mgmt_netmask is not defined or mgmt_netmask == "" or
-        mgmt_gw is not defined or mgmt_gw == ""
+        org_moid is not defined or org_moid == "" or
+        srvr_moid is not defined or srvr_moid == "" or
+        srvr_object_type is not defined or srvr_object_type == "" or
+        os_img_moid is not defined or os_img_moid == "" or
+        cnfg_file_moid is not defined or cnfg_file_moid == "" or
+        scu_img_moid is not defined or scu_img_moid == "" or
+        hostname is not defined or hostname == "" or
+        password is not defined or password == "" or
+        dns_primary_address is not defined or dns_primary_address == "" or
+        management_ip is not defined or management_ip == "" or
+        management_netmask is not defined or management_netmask == "" or
+        management_gw is not defined or management_gw == ""
     - name: Trigger OS Install
       cisco.intersight.intersight_rest_api:
         api_key_id: "{{ intersight_api_key_id }}"
@@ -51,34 +51,34 @@
           InstallMethod: "vMedia"
           Image:
             ObjectType: "softwarerepository.OperatingSystemFile"
-            Moid: "{{ os_image_moid }}"
+            Moid: "{{ os_img_moid }}"
           OsduImage:
             ObjectType: "firmware.ServerConfigurationUtilityDistributable"
-            Moid: "{{ scu_image_moid }}"
+            Moid: "{{ scu_img_moid }}"
           OverrideSecureBoot: true
           Organization:
             ObjectType: "organization.Organization"
             Moid: "{{ org_moid }}"
           Server:
-            ObjectType: "{{ server_object_type }}"
-            Moid: "{{ server_moid }}"
+            ObjectType: "{{ srvr_object_type }}"
+            Moid: "{{ srvr_moid }}"
           ConfigurationFile:
             ObjectType: "os.ConfigurationFile"
-            Moid: "{{ config_file_moid }}"
+            Moid: "{{ cnfg_file_moid }}"
           AdditionalParameters: null
           Answers:
-            Hostname: "{{ install_hostname }}"
+            Hostname: "{{ hostname }}"
             IpConfigType: "static"
-            RootPassword: "{{ root_password }}"
+            RootPassword: "{{ password }}"
             IsRootPasswordCrypted: false
-            Nameserver: "{{ dns_primary }}"
+            Nameserver: "{{ dns_primary_address }}"
             Source: "Template"
             IpConfiguration:
               ObjectType: "os.Ipv4Configuration"
               IpV4Config:
-                IpAddress: "{{ mgmt_ip }}"
-                Netmask: "{{ mgmt_netmask }}"
-                Gateway: "{{ mgmt_gw }}"
+                IpAddress: "{{ management_ip }}"
+                Netmask: "{{ management_netmask }}"
+                Gateway: "{{ management_gw }}"
           InstallTarget:
             ObjectType: "os.VirtualDrive"
             Name: "MStorBootVd"
@@ -95,9 +95,9 @@
         workflow_results:
           os_installation:
             install_moid: "{{ install_resp.api_response.Moid | default('unknown') }}"
-            server_moid: "{{ server_moid }}"
-            hostname: "{{ install_hostname }}"
-            mgmt_ip: "{{ mgmt_ip }}"
+            moid: "{{ srvr_moid }}"
+            hostname: "{{ hostname }}"
+            mgmt_ip: "{{ management_ip }}"
             install_status: "{{ install_resp.api_response.InstallState | default('initiated') }}"
             data: "{{ install_resp }}"
             job_type: "os_install"
