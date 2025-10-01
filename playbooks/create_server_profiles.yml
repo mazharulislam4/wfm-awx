@@ -83,9 +83,6 @@
     - name: "Standardized output"
       set_fact:
         workflow_output:
-          job_type: "create_server_profiles"
-          status: "success"
-          count: "{{ server_profile_creation_result.results | length }}"
           server_profiles:
             created_profiles: "{{ server_profile_creation_result.results | map(attribute='api_response') | list }}"
             profile_moids: "{{ server_profile_creation_result.results | map(attribute='api_response.Moid') | list }}"
@@ -93,7 +90,6 @@
             resource_pool_used: "{{ pool_name | default('unknown') }}"
           # Single profile MOID for backward compatibility
           server_profile_moid: "{{ server_profile_creation_result.results[0].api_response.Moid }}"
-
-    - name: "Debug workflow output"
-      debug:
-        var: workflow_output
+          job_type: "create_server_profiles"
+          status: "success"
+          count: "{{ server_profile_creation_result.results | length }}"
