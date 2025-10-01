@@ -12,6 +12,9 @@
     profile_moid: "{{ server_profile_moid | default(steps.step4.server_profile_moid) | default('') }}"
 
   tasks:
+    - name: Check serve profile moid is defined from previous step or input
+      debug:
+        msg: "Using server_profile_moid: {{steps.step4.server_profile_moid}} and whole:   {{ profile_moid }}"
     - name: Debug available variables for troubleshooting
       debug:
         msg:
