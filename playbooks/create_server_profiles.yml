@@ -9,9 +9,11 @@
 
   vars:
     # Runtime parameters - passed from previous steps or command line
-    org_moid: "{{ steps.step1.organization.moid | organization.moid | organization_moid | default('') }}"
-    pool_moid: "{{ steps.step2.resource_pool.moid | resource_pool.moid | resource_pool_moid | default('') }}"
-    template_moid: "{{ server_profile_template.moid | steps.step3.server_profile_template.moid | server_profile_template_moid | default('') }}"
+    # Fixed: Use proper fallback syntax
+    org_moid: "{{ organization_moid | default(organization.moid | default(steps.step1.organization.moid | default(''))) }}"
+    pool_moid: "{{ resource_pool_moid | default(resource_pool.moid | default(steps.step2.resource_pool.moid | default(''))) }}"
+    template_moid: "{{ server_profile_template_moid | default(server_profile_template.moid | default(steps.step3.server_profile_template.moid | default(''))) }}"
+
     profiles_to_create: >-
       {{
         [{
@@ -25,9 +27,16 @@
       fail:
         msg: "Required parameters missing. Pass: -e 'server_profile_template_moid=xxx resource_pool_moid=yyy organization_moid=zzz'"
       when: >
-        server_profile_template_moid is not defined or server_profile_template_moid == "" or
-        resource_pool_moid is not defined or resource_pool_moid == "" or
-        organization_moid is not defined or organization_moid == ""
+        template_moid == "" or
+        pool_moid == "" or
+        org_moid == ""
+
+    - name: "Debug runtime parameters"
+      debug:
+        msg:
+          - "Organization MOID: {{ org_moid }}"
+          - "Resource Pool MOID: {{ pool_moid }}"
+          - "Template MOID: {{ template_moid }}"
 
     - name: "Create Server Profile from Template"
       cisco.intersight.intersight_rest_api:
@@ -47,7 +56,7 @@
             Moid: "{{ template_moid }}"
           ServerPool:
             ObjectType: "resourcepool.Pool"
-            Moid: "{{ rp_moid }}"
+            Moid: "{{ pool_moid }}" # Fixed: was rp_moid
           Organization:
             ObjectType: "organization.Organization"
             Moid: "{{ org_moid }}"
@@ -55,22 +64,15 @@
             - Key: "configmode"
               Value: "ansible"
             - Key: "source_template"
-              Value: "{{ template_name }}"
+              Value: "{{ template_name | default('unknown') }}"
             - Key: "resource_pool"
-              Value: "{{ pool_name }}"
+              Value: "{{ pool_name | default('unknown') }}"
       loop: "{{ profiles_to_create }}"
       loop_control:
         label: "{{ item.name }}"
       register: server_profile_creation_result
 
-    - name: "Standardized output"
-      set_fact:
-        workflow_results:
-          server_profiles: "{{ server_profile_creation_result.results }}"
-        # Output for step chaining
-        server_profile_moid: "{{ server_profile_creation_result.results[0].api_response.Moid }}"
-
-    - name: Summarize created profiles
+    - name: "Summarize created profiles"
       debug:
         msg: >-
           Profile {{ item.api_response.Name }} 
@@ -80,12 +82,18 @@
 
     - name: "Standardized output"
       set_fact:
-        workflow_results:
+        workflow_output:
+          job_type: "create_server_profiles"
+          status: "success"
+          count: "{{ server_profile_creation_result.results | length }}"
           server_profiles:
             created_profiles: "{{ server_profile_creation_result.results | map(attribute='api_response') | list }}"
             profile_moids: "{{ server_profile_creation_result.results | map(attribute='api_response.Moid') | list }}"
-            template_used: "{{ template_name }}"
-            resource_pool_used: "{{ pool_name }}"
-            job_type: "create_server_profiles"
-            status: "success"
-            count: "{{ server_profile_creation_result.results | length }}"
+            template_used: "{{ template_name | default('unknown') }}"
+            resource_pool_used: "{{ pool_name | default('unknown') }}"
+          # Single profile MOID for backward compatibility
+          server_profile_moid: "{{ server_profile_creation_result.results[0].api_response.Moid }}"
+
+    - name: "Debug workflow output"
+      debug:
+        var: workflow_output
