@@ -12,10 +12,10 @@
     # mgmt_ip from Step 12 which is the host now
     # install_hostname from Step 12 which is username
     # root_password from Step 12
-    esxi_hostname: "{{ steps.step12.os_installation.mgmt_ip | default(mgmt_ip) | default('') }}"
-    esxi_username: "{{ steps.step12.os_installation.install_hostname | default(esxi_username) | default('root') }}"
-    esxi_password: "{{ steps.step12.os_installation.root_password | default(esxi_password) | default('') }}"
-    switch_name: "{{ vswitch_name | default('vSwitch0') }}"
+    esxi_hostname: "{{ steps.step12.os_installation.management_ip | default(mgmt_ip) | default('') }}"
+    esxi_username: "{{ steps.step12.os_installation.hostname | default(esxi_username) | default('root') }}"
+    esxi_password: "{{ steps.step12.os_installation.password | default(esxi_password) | default('') }}"
+    switch_name: "{{ mgmt_vswitch_name | default('vSwitch0') }}"
     nic_list: "{{ mgmt_uplinks.split(',') | map('trim') | list | default(['vmnic0', 'vmnic1']) }}"
 
   tasks:
@@ -48,8 +48,8 @@
         workflow_results:
           mgmt_vswitch:
             esxi_host: "{{ esxi_hostname }}"
-            vswitch_name: "{{ switch_name }}"
-            uplink_nics: "{{ nic_list }}"
+            mgmt_vswitch_name: "{{ switch_name }}"
+            mgmt_uplink_nics: "{{ nic_list }}"
             changed: "{{ vswitch_result.changed }}"
             job_type: "configure_mgmt_vswitch"
             status: "{{ 'success' if not vswitch_result.failed else 'failed' }}"
