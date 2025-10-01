@@ -31,13 +31,6 @@
         pool_moid == "" or
         org_moid == ""
 
-    - name: "Debug runtime parameters"
-      debug:
-        msg:
-          - "Organization MOID: {{ org_moid }}"
-          - "Resource Pool MOID: {{ pool_moid }}"
-          - "Template MOID: {{ template_moid }}"
-
     - name: "Create Server Profile from Template"
       cisco.intersight.intersight_rest_api:
         api_key_id: "{{ intersight_api_key_id }}"
@@ -93,3 +86,7 @@
           job_type: "create_server_profiles"
           status: "success"
           count: "{{ server_profile_creation_result.results | length }}"
+
+    - name: "Debug workflow output"
+      debug:
+        var: workflow_output
