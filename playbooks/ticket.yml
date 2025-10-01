@@ -160,7 +160,7 @@ conf_vmnetwork_vswitch_input:
   # install_hostname from Step 12 with is username
   # root_password from Step 12
   switch: vSwitch2
-  uplinks: [vmnic4, vmnic5]
+  uplinks: [vmnic4, vmnic5] #vmnic4, vmnic5 have to convert to list
 conf_vmnetwork_vswitch_output:
   # success confirmation
 # Step 16: Configure Vmotion vSwitch, PortGroups, VMkernel

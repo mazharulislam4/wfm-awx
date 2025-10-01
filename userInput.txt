@@ -1,11 +1,57 @@
-organization_name (text)  default 
-resource_pool_name (text) FredHutch_RP
-server_profile_template_name (text) VZURE_UCSX_SP_TEMPLATE
+there you go !
+
+----- lookup_oranization -----
+organization_name  
+
+-----lookup_resource_pool -----
+resource_pool_name
+
+----- lookup_server_profile_template -----
+server_profile_template_name 
 
 
 ------for create server profile --------
 profile_name
 profile_description
 
------- fetch available ips---------
+------ fetch avaiable ips---------
 network_cidr
+number_of_ips
+
+------- fetch os image ---------
+os_image_name
+
+------- lookup_os_config_file -------
+config_file_name
+
+------ lookup_scu_image -----
+scu_image_name
+
+------ os_install -------
+install_hostname
+root_password
+dns_primary
+mgmt_ip
+mgmt_netmask
+mgmt_gw
+
+------ conf_mgmt_vswitch_input ------
+mgmt_switch
+mgmt_uplinks
+
+------- conf_storage_vswitch_input-------
+storage_switch
+storage_uplinks
+storage_vlan_id
+storage_netmask
+
+------ conf_vmnetwork_vswitch_input ------
+vmnetwork_switch
+vmnetwork_uplinks
+
+------ conf_vmotion_vswitch_input ------
+vmotion_switch
+vmotion_portgroup
+vmotion_uplinks
+vmotion_netmask
+vmotion_vlan_id

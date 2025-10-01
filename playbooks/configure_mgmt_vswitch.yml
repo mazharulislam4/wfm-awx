@@ -12,11 +12,11 @@
     # mgmt_ip from Step 12 which is the host now
     # install_hostname from Step 12 which is username
     # root_password from Step 12
-    esxi_hostname: "{{ steps.step12.mgmt_ip | default(mgmt_ip) | default('') }}"
-    esxi_username: "{{ steps.step12.install_hostname | default(esxi_username) | default('root') }}"
-    esxi_password: "{{ steps.step12.root_password | default(esxi_password) | default('') }}"
+    esxi_hostname: "{{ steps.step12.os_installation.mgmt_ip | default(mgmt_ip) | default('') }}"
+    esxi_username: "{{ steps.step12.os_installation.install_hostname | default(esxi_username) | default('root') }}"
+    esxi_password: "{{ steps.step12.os_installation.root_password | default(esxi_password) | default('') }}"
     switch_name: "{{ vswitch_name | default('vSwitch0') }}"
-    nic_list: "{{ uplink_nics | default(['vmnic0', 'vmnic1']) }}"
+    nic_list: "{{ mgmt_uplinks.split(',') | map('trim') | list | default(['vmnic0', 'vmnic1']) }}"
 
   tasks:
     - name: "Validate required runtime parameters"
