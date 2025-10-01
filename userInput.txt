@@ -7,6 +7,5 @@ server_profile_template_name (text) VZURE_UCSX_SP_TEMPLATE
 profile_name
 profile_description
 
------- fetch avaiable ips---------
+------ fetch available ips---------
 network_cidr
-number_of_ips
