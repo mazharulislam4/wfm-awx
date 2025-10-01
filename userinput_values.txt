@@ -16,7 +16,6 @@ vSwitch0
 vmnic0, vmnic1
 vSwitch1
 vmnic2, vmnic3
-10.21.1.53
 255.255.255.0
 vSwitch2
 vmnic4, vmnic5
@@ -25,5 +24,6 @@ vMotion
 vmnic6, vmnic7
 255.255.255.0
 
+storage ip :10.21.1.53
 os config file: ESXi7.0ConfigFile
 Ip reservation name:  ReserveIP

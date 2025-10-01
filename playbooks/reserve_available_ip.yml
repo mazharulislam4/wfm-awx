@@ -21,7 +21,7 @@
       fail:
         msg: "Required parameters missing. Pass: -e 'name=ReservationName available_ip=10.50.1.4'"
       when: >
-        name is not defined or name == "" or
+        reservation_name is not defined or reservation_name == "" or
         ip_address is not defined or ip_address == ""
     - name: Encode credentials
       set_fact:
