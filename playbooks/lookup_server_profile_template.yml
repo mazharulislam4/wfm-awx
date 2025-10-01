@@ -8,7 +8,7 @@
     - credentials.yml
 
   vars:
-    server_profile_template: "{{ server_profile_template_name }}"
+    spt_template_name: "{{ server_profile_template_name }}"
 
   tasks:
     - name: "Lookup Server Profile Template by Name"
@@ -18,7 +18,7 @@
         api_uri: "{{ intersight_base_url }}"
         resource_path: "/server/ProfileTemplates"
         query_params:
-          $filter: "Name eq '{{ server_profile_template }}'"
+          $filter: "Name eq '{{ spt_template_name }}'"
       register: template_lookup
 
     - name: "Debug Template Lookup"
@@ -27,7 +27,7 @@
 
     - name: "Check if template exists"
       fail:
-        msg: "No server profile template found with name '{{ server_profile_template }}'"
+        msg: "No server profile template found with name '{{ spt_template_name }}'"
       when: template_lookup.api_response is not defined
 
     - name: "Set fact for template Moid"
@@ -37,7 +37,7 @@
         # Standard output structure
         workflow_results:
           server_profile_template:
-            name: "{{ template_name }}"
+            name: "{{ spt_template_name }}"
             moid: "{{ template_lookup.api_response.Moid | default('') }}"
             data: "{{ template_lookup.api_response | default({}) }}"
             job_type: "lookup_server_profile_template"
@@ -45,4 +45,4 @@
 
     - name: Display results
       debug:
-        var: template_moid
+        var: workflow_results
