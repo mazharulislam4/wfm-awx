@@ -1,0 +1,29 @@
+default
+FredHutch_RP
+VZURE_UCSX_SP_TEMPLATE
+SP-001
+Server Profile 001 derived from VZURE template
+10.50.1.0/24
+VMware ESXi 7 Update 3
+ucs-scu-7.1.4.250200
+root
+P@ssw0rd!23
+8.8.8.8
+10.21.1.52
+255.255.255.0
+10.21.1.254
+vSwitch0
+vmnic0, vmnic1
+vSwitch1
+vmnic2, vmnic3
+10.21.1.53
+255.255.255.0
+vSwitch2
+vmnic4, vmnic5
+vSwitch3
+vMotion
+vmnic6, vmnic7
+255.255.255.0
+
+os config file: ESXi7.0ConfigFile
+Ip reservation name:  ReserveIP

@@ -9,8 +9,8 @@
 
   vars:
     # Runtime parameters - can be passed via -e or AWX or chained from fetch_available_ip.yml
-    reservation_name: "{{ ip_reservation_name | steps.step5.available_ips.network | network_id | default('auto-reserved-ip') }}"
-    ip_address: "{{ ip_address_to_reserve | steps.step5.available_ips.primary_ip | workflow_results.available_ips.primary_ip | available_ip | default('') }}"
+    reservation_name: "{{ ip_reservation_name | network_id | default('auto-reserved-ip') }}"
+    ip_address: "{{ ip_address_to_reserve | steps.step5.ip_allocation.available_ip | ip_allocation.available_ip | available_ip | default('') }}"
     comment: "{{ reservation_comment | default('Reserved via Ansible automation') }}"
     match_client: "{{ match_client_type | default('RESERVED') }}"
     api_url: "{{ infoblox_api_url | default('') }}"
