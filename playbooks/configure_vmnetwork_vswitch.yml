@@ -15,8 +15,8 @@
     esxi_hostname: "{{ steps.step12.os_installation.management_ip | default(mgmt_ip) | default('') }}"
     esxi_username: "{{ steps.step12.os_installation.hostname | default(esxi_username) | default('root') }}"
     esxi_password: "{{ steps.step12.os_installation.password | default(esxi_password) | default('') }}"
-    switch_name: "{{ vmnetwork_vswitch_name | default('vSwitch2') }}"
-    nic_list: "{{ vmnetwork_uplink_nics.split(',') | map('trim') | list | default(['vmnic4', 'vmnic5']) }}"
+    switch_name: "{{ vmnetwork_switch | default('vSwitch2') }}"
+    nic_list: "{{ vmnetwork_uplinks.split(',') | map('trim') | list | default(['vmnic4', 'vmnic5']) }}"
 
   tasks:
     - name: "Validate required runtime parameters"

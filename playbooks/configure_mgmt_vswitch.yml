@@ -15,7 +15,7 @@
     esxi_hostname: "{{ steps.step12.os_installation.management_ip | default(mgmt_ip) | default('') }}"
     esxi_username: "{{ steps.step12.os_installation.hostname | default(esxi_username) | default('root') }}"
     esxi_password: "{{ steps.step12.os_installation.password | default(esxi_password) | default('') }}"
-    switch_name: "{{ mgmt_vswitch_name | default('vSwitch0') }}"
+    switch_name: "{{ mgmt_vswitch | default('vSwitch0') }}"
     nic_list: "{{ mgmt_uplinks.split(',') | map('trim') | list | default(['vmnic0', 'vmnic1']) }}"
 
   tasks:

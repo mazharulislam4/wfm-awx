@@ -46,6 +46,7 @@ mgmt_uplinks
 storage_switch
 storage_uplinks
 storage_vlan_id
+storage_ip_address
 storage_netmask
 
 ------ conf_vmnetwork_vswitch_input ------

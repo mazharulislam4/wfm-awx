@@ -15,7 +15,7 @@
     esxi_hostname: "{{ steps.step12.os_installation.management_ip | default(mgmt_ip) | default('') }}"
     esxi_username: "{{ steps.step12.os_installation.hostname | default(esxi_username) | default('root') }}"
     esxi_password: "{{ steps.step12.os_installation.password | default(esxi_password) | default('') }}"
-    switch_name: "{{ vmotion_vswitch_name | default('vSwitch3') }}"
+    switch_name: "{{ vmotion_vswitch | default('vSwitch3') }}"
     nic_list: "{{ vmotion_uplinks.split(',') | map('trim') | list | default(['vmnic6', 'vmnic7']) }}"
     pg_name: "{{ vmotion_portgroup | default('vMotion') }}"
     vlan_number: "{{ vmotion_vlan_id | default(0) }}"

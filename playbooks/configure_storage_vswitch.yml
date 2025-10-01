@@ -15,12 +15,12 @@
     esxi_hostname: "{{ steps.step12.os_installation.management_ip | default(mgmt_ip) | default('') }}"
     esxi_username: "{{ steps.step12.os_installation.hostname | default(esxi_username) | default('root') }}"
     esxi_password: "{{ steps.step12.os_installation.password | default(esxi_password) | default('') }}"
-    switch_name: "{{ storage_vswitch_name | default('vSwitch1') }}"
-    nic_list: "{{ storage_uplink_nics.split(',') | map('trim') | list | default(['vmnic2', 'vmnic3']) }}"
+    switch_name: "{{ storage_vswitch | default('vSwitch1') }}"
+    nic_list: "{{ storage_uplinks.split(',') | map('trim') | list | default(['vmnic2', 'vmnic3']) }}"
     pg_name: "{{ storage_portgroup_name | default('Storage') }}"
     vlan_number: "{{ storage_vlan_id | default('0') }}"
     storage_address: "{{ storage_ip_address | default('') }}"
-    storage_mask: "{{ storage_subnet_mask | default('255.255.255.0') }}"
+    storage_mask: "{{ storage_netmask | default(storage_netmask | default('255.255.255.0')) }}"
 
   tasks:
     - name: "Validate required runtime parameters"

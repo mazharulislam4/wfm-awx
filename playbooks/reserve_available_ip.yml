@@ -22,7 +22,7 @@
         msg: "Required parameters missing. Pass: -e 'name=ReservationName available_ip=10.50.1.4'"
       when: >
         name is not defined or name == "" or
-        available_ip is not defined or available_ip == ""
+        ip_address is not defined or ip_address == ""
     - name: Encode credentials
       set_fact:
         ipam_auth_header: "Basic {{ (infoblox_username + ':' + infoblox_password) | b64encode }}"
@@ -48,7 +48,7 @@
 
     - name: "Show reservation details"
       debug:
-        msg: "✅ Reserved IP {{ ip_to_reserve }} with name '{{ reservation_name }}'"
+        msg: "✅ Reserved IP {{ ip_to_reserve }} with name '{{ reservation_name }}' Ip address {{ ip_address}} "
 
     - name: "Standardized output"
       set_fact:
