@@ -2,19 +2,27 @@
 - name: Check Server with Server Profiles Assigned
   hosts: localhost
   connection: local
-  gather_facts: no
+  gather_facts: yes
 
   vars_files:
     - credentials.yml
 
   vars:
-    # Runtime parameters - can be passed via -e or AWX
-    profile_moid: "{{ server_profile_moid |  server_profile_template.moid | default('') }}"
+    # Runtime parameters - can be passed via -e or AWX or chained from previous steps
+    profile_moid: "{{ steps.step4.server_profile_moid | default(server_profile_moid) | default('') }}"
 
   tasks:
+    - name: Debug available variables for troubleshooting
+      debug:
+        msg:
+          - "server_profile_moid: {{ server_profile_moid | default('NOT_SET') }}"
+          - "workflow_job_output.server_profile_moid: {{ workflow_job_output.server_profile_moid | default('NOT_SET') }}"
+          - "profile_moid: {{ profile_moid }}"
+          - "hostvars keys: {{ hostvars.keys() | list }}"
+
     - name: Validate required parameters
       fail:
-        msg: "Missing required parameter: server_profile_moid"
+        msg: "Missing required parameter: server_profile_moid. Please pass via -e server_profile_moid=<value> or ensure previous workflow step outputs server_profile_moid"
       when: profile_moid is not defined or profile_moid == ''
 
     - name: Get profile details to check assigned server
@@ -53,8 +61,8 @@
             server_object_type: "{{ assigned_server_object_type }}"
             assignment_status: "{{ assignment_status }}"
             job_type: "lookup_server_with_server_profile"
-            data: "{{ profile_details.api_response | default({}) }}"
             status: "success"
+            timestamp: "{{ ansible_date_time.iso8601 }}"
 
     - name: Display results
       debug:

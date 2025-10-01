@@ -2,18 +2,21 @@
 - name: Configure Management vSwitch
   hosts: localhost
   connection: local
-  gather_facts: no
+  gather_facts: yes
 
   vars_files:
     - credentials.yml
 
   vars:
-    # Runtime parameters - can be passed via -e or AWX
-    esxi_hostname: "{{ mgmt_ip }}"
-    esxi_username: "{{ esxi_username }}"
-    esxi_password: "{{ esxi_password }}"
-    vswitch_name: "{{ vswitch_name }}"
-    uplink_nics: "{{ uplink_nics }}"
+    # Runtime parameters - can be passed via -e or AWX or chained from previous steps
+    # mgmt_ip from Step 12 which is the host now
+    # install_hostname from Step 12 which is username
+    # root_password from Step 12
+    esxi_hostname: "{{ steps.step12.mgmt_ip | default(mgmt_ip) | default('') }}"
+    esxi_username: "{{ steps.step12.install_hostname | default(esxi_username) | default('root') }}"
+    esxi_password: "{{ steps.step12.root_password | default(esxi_password) | default('') }}"
+    switch_name: "{{ vswitch_name | default('vSwitch0') }}"
+    nic_list: "{{ uplink_nics | default(['vmnic0', 'vmnic1']) }}"
   
 
   tasks:
@@ -24,8 +27,8 @@
         password: "{{ esxi_password }}"
         validate_certs: false
         esxi_hostname: "{{ esxi_hostname }}"
-        switch: "{{ vswitch_name }}"
-        nics: "{{ uplink_nics }}"
+        switch: "{{ switch_name }}"
+        nics: "{{ nic_list }}"
         state: present
       delegate_to: localhost
       register: vswitch_result
@@ -38,8 +41,8 @@
         workflow_results:
           mgmt_vswitch:
             esxi_host: "{{ esxi_hostname }}"
-            vswitch_name: "{{ vswitch_name }}"
-            uplink_nics: "{{ uplink_nics }}"
+            vswitch_name: "{{ switch_name }}"
+            uplink_nics: "{{ nic_list }}"
             changed: "{{ vswitch_result.changed }}"
             job_type: "configure_mgmt_vswitch"
             status: "{{ 'success' if not vswitch_result.failed else 'failed' }}"
@@ -47,4 +50,4 @@
 
     - name: Display results
       debug:
-        msg: "Management vSwitch '{{ vswitch_name }}' configured on {{ esxi_hostname }} with uplinks: {{ uplink_nics | join(', ') }}{{ ' (changed)' if vswitch_result.changed else ' (no changes needed)' }}"
+        msg: "Management vSwitch '{{ switch_name }}' configured on {{ esxi_hostname }} with uplinks: {{ nic_list | join(', ') }}{{ ' (changed)' if vswitch_result.changed else ' (no changes needed)' }}"

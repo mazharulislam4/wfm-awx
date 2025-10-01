@@ -2,23 +2,23 @@
 - name: OS Install in Intersight
   hosts: localhost
   connection: local
-  gather_facts: no
+  gather_facts: yes
 
   vars_files:
     - credentials.yml
 
   vars:
     # Runtime parameters - can be passed via -e or AWX
-    org_moid: "{{ organization_moid }}"
-    server_moid: "{{ server_moid }}"
-    server_object_type: "{{ server_object_type }}"
-    os_image_moid: "{{ os_image_moid }}"
-    scu_image_moid: "{{ scu_image_moid}}"
-    config_file_moid: "{{ config_file_moid }}"
-    install_hostname: "{{ install_hostname }}"
+    org_moid: "{{ steps.step1.organization_moid | default(organization_moid) | default('') }}"
+    server_moid: "{{ steps.step5.server_moid | default(server_moid) | default('') }}"
+    server_object_type: "{{ steps.step5.server_object_type | default(server_object_type) | default('') }}"
+    os_image_moid: "{{ steps.step6.os_image_moid | default(os_image_moid) | default('') }}"
+    scu_image_moid: "{{ steps.step7.scu_image_moid | default(scu_image_moid) | default('') }}"
+    config_file_moid: "{{ steps.step8.config_file_moid | default(config_file_moid) | default('') }}"
+    install_hostname: "{{ steps.step9.hostname | default(install_hostname) | default('') }}"
     root_password: "{{ root_password }}"
     dns_primary: "{{ dns_primary }}"
-    mgmt_ip: "{{ mgmt_ip }}"
+    mgmt_ip: "{{ steps.step6.mgmt_ip | default(mgmt_ip) | default('') }}"
     mgmt_netmask: "{{ mgmt_netmask }}"
     mgmt_gateway: "{{ mgmt_gateway }}"
 

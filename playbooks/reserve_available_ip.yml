@@ -8,11 +8,13 @@
     - credentials.yml
 
   vars:
-    # Runtime parameters - can be passed via -e or AWX
-    reservation_name: "{{ ip_reservation_name }}"
-    ip_address: "{{ ip_address_to_reserve }}"
-    comment: "{{ reservation_comment }}"
-    match_client: "{{ match_client_type }}"
+    # Runtime parameters - can be passed via -e or AWX or chained from fetch_available_ip.yml
+    reservation_name: "{{ ip_reservation_name | steps.step5.available_ips.network | network_id | default('auto-reserved-ip') }}"
+    ip_address: "{{ ip_address_to_reserve | steps.step5.available_ips.primary_ip | workflow_results.available_ips.primary_ip | available_ip | default('') }}"
+    comment: "{{ reservation_comment | default('Reserved via Ansible automation') }}"
+    match_client: "{{ match_client_type | default('RESERVED') }}"
+    api_url: "{{ infoblox_api_url | default('') }}"
+    api_timeout: "{{ infoblox_timeout | default(30) }}"
 
   tasks:
     - name: Validate required parameters

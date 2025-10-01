@@ -2,20 +2,20 @@
 - name: Lookup OS Image Moid Independently
   hosts: localhost
   connection: local
-  gather_facts: no
+  gather_facts: yes
 
   vars_files:
     - credentials.yml
 
   vars:
     # Runtime parameter - must be passed via extra-vars
-    os_image_name: "{{ os_image_name }}"
+    image_name: "{{ os_image_name | default('') }}"
 
   tasks:
     - name: "Validate required runtime parameters"
       fail:
         msg: "os_image_name is required. Pass it with -e 'os_image_name=VMware ESXi 7 Update 3'"
-      when: os_image_name is not defined or os_image_name == ""
+      when: image_name is not defined or image_name == ""
     - name: Lookup OS image MOID by name
       cisco.intersight.intersight_rest_api:
         api_key_id: "{{ intersight_api_key_id }}"
@@ -23,13 +23,13 @@
         api_uri: "{{ intersight_base_url }}"
         resource_path: "/softwarerepository/OperatingSystemFiles"
         query_params:
-          $filter: "Name eq '{{ os_image_name }}'"
+          $filter: "Name eq '{{ image_name }}'"
           $select: "Moid,Name"
       register: os_lookup
 
     - name: "Check if OS image exists"
       fail:
-        msg: "No OS image found with name '{{ os_image_name }}'"
+        msg: "No OS image found with name '{{ image_name }}'"
       when: os_lookup.api_response is not defined or os_lookup.api_response | length == 0
 
     - name: "Set OS image moid as fact"
@@ -38,14 +38,15 @@
 
     - name: "Debug resolved OS image moid"
       debug:
-        msg: "OS image '{{ os_image_name }}' resolved to moid: {{ os_image_moid }}"
+        msg: "OS image '{{ image_name }}' resolved to moid: {{ os_image_moid }}"
 
     - name: "Standardized output"
       set_fact:
         workflow_results:
           os_image:
-            name: "{{ os_image_name  }}"
+            name: "{{ image_name }}"
             moid: "{{ os_image_moid | default('') }}"
             data: "{{ os_lookup.api_response | default({}) }}"
             job_type: "lookup_os_image"
             status: "success"
+            timestamp: "{{ ansible_date_time.iso8601 }}"
