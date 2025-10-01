@@ -8,35 +8,23 @@
     - credentials.yml
 
   vars:
-    # Runtime parameters - can be passed via -e or AWX
-    reservation_name: "{{ ip_reservation_name }}"
-    ip_address: "{{ ip_address_to_reserve }}"
-    comment: "{{ reservation_comment }}"
-    match_client: "{{ match_client_type }}"
+    # Runtime parameters - must be passed via extra-vars
+    reservation_name: "{{ name }}"
+    ip_to_reserve: "{{ available_ip }}"
+    reservation_comment: "{{ comment | default('Reserved via Ansible') }}"
 
   tasks:
-    - name: Validate required parameters
+    - name: "Validate required runtime parameters"
       fail:
-        msg: "Missing required parameter: {{ item }}"
-      when: vars[item] is not defined or vars[item] == ''
-      loop:
-        - reservation_name
-        - ip_address
-        - api_url
-
-    - name: Validate Infoblox credentials
-      fail:
-        msg: "Missing Infoblox credentials: {{ item }}"
-      when: vars[item] is not defined or vars[item] == ''
-      loop:
-        - infoblox_username
-        - infoblox_password
-
+        msg: "Required parameters missing. Pass: -e 'name=ReservationName available_ip=10.50.1.4'"
+      when: >
+        name is not defined or name == "" or
+        available_ip is not defined or available_ip == ""
     - name: Encode credentials
       set_fact:
         ipam_auth_header: "Basic {{ (infoblox_username + ':' + infoblox_password) | b64encode }}"
 
-    - name: Reserve IP address in Infoblox
+    - name: Reserve IP from selected network (Infoblox)
       uri:
         url: "{{ infoblox_api_url }}/fixedaddress"
         method: POST
@@ -46,33 +34,27 @@
         body_format: json
         body: 
           name: "{{ reservation_name }}"
-          ipv4addr: "{{ ip_address }}"
-          comment: "{{ comment }} - {{ ansible_date_time.iso8601 }}"
+          ipv4addr: "{{ ip_to_reserve }}"
+          comment: "{{ reservation_comment }}"
           match_client: "RESERVED"
         validate_certs: false
         return_content: true
         timeout: 30
       register: ip_response
       failed_when: ip_response.status != 201
-      retries: 3
-      delay: 2
 
-    - name: Set standard output
+    - name: "Show reservation details"
+      debug:
+        msg: "✅ Reserved IP {{ ip_to_reserve }} with name '{{ reservation_name }}'"
+
+    - name: "Standardized output"
       set_fact:
-        # Legacy compatibility
-        ip_reservation_result: "{{ ip_response }}"
-        # Standard output structure
         workflow_results:
           ip_reservation:
             name: "{{ reservation_name }}"
-            ip_address: "{{ ip_address }}"
-            comment: "{{ comment }}"
-            reservation_ref: "{{ ip_response.json }}"
-            status_code: "{{ ip_response.status }}"
-            job_type: "reserve_ip"
+            reserved_ip: "{{ ip_to_reserve }}"
+            comment: "{{ reservation_comment }}"
+            reservation_ref: "{{ ip_response.json if ip_response.json is string else ip_response.json | string }}"
+            data: "{{ ip_response }}"
+            job_type: "reserve_available_ip"
             status: "success"
-            timestamp: "{{ ansible_date_time.iso8601 }}"
-
-    - name: Display results
-      debug:
-        msg: "Successfully reserved IP {{ ip_address }} with name '{{ reservation_name }}' in Infoblox"

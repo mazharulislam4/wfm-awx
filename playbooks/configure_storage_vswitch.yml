@@ -8,100 +8,89 @@
     - credentials.yml
 
   vars:
-    # Runtime parameters - can be passed via -e or AWX
-    esxi_hostname: "{{ mgmt_ip }}"
-    esxi_username: "{{ esxi_username }}"
-    esxi_password: "{{ esxi_password }}"
-    vswitch_name: "{{ storage_vswitch_name }}"
-    uplink_nics: "{{ storage_uplink_nics }}"
-    portgroup_name: "{{ storage_portgroup_name }}"
-    vlan_id: "{{ storage_vlan_id }}"
-    storage_ip: "{{ storage_ip_address }}"
-    storage_netmask: "{{ storage_subnet_mask }}"
+    # Runtime parameters - must be passed via extra-vars
+    # Required: esxi_host, esxi_username, esxi_password, storage_vswitch_name, storage_portgroup, storage_ip, storage_netmask
+    # Optional: storage_uplinks, storage_vlan_id
+    stor_vswitch_name: "{{ storage_vswitch_name }}"
+    stor_uplinks: "{{ storage_uplinks | default(['vmnic2', 'vmnic3']) }}"
+    stor_portgroup: "{{ storage_portgroup }}"
+    stor_vlan_id: "{{ storage_vlan_id | default(0) }}"
+    stor_ip: "{{ storage_ip }}"
+    stor_netmask: "{{ storage_netmask }}"
 
   tasks:
-    - name: Validate required parameters
+    - name: "Validate required runtime parameters"
       fail:
-        msg: "Missing required parameter: {{ item }}"
-      when: vars[item] is not defined or vars[item] == ''
-      loop:
-        - esxi_hostname
-        - esxi_password
-        - storage_ip
-
-    - name: Validate uplink NICs list
-      fail:
-        msg: "Storage uplink NICs list cannot be empty"
-      when: uplink_nics is not defined or uplink_nics | length == 0
-
-    - name: Configure Storage vSwitch
+        msg: "Required parameters missing. Need: esxi_host, esxi_username, esxi_password, storage_vswitch_name, storage_portgroup, storage_ip, storage_netmask"
+      when: >
+        esxi_host is not defined or esxi_host == "" or
+        esxi_username is not defined or esxi_username == "" or
+        esxi_password is not defined or esxi_password == "" or
+        stor_vswitch_name is not defined or stor_vswitch_name == "" or
+        stor_portgroup is not defined or stor_portgroup == "" or
+        stor_ip is not defined or stor_ip == "" or
+        stor_netmask is not defined or stor_netmask == ""
+    - name: Ensure Storage vSwitch exists with specified uplinks
       community.vmware.vmware_vswitch:
-        hostname: "{{ esxi_hostname }}"
+        hostname: "{{ esxi_host }}"
         username: "{{ esxi_username }}"
         password: "{{ esxi_password }}"
         validate_certs: false
-        esxi_hostname: "{{ esxi_hostname }}"
-        switch: "{{ vswitch_name }}"
-        nics: "{{ uplink_nics }}"
+        esxi_hostname: "{{ esxi_host }}"
+        switch: "{{ stor_vswitch_name }}"
+        nics: "{{ stor_uplinks }}"
         state: present
       delegate_to: localhost
       register: vswitch_result
 
-    - name: Configure Storage Port Group
+    - name: Ensure Storage portgroup exists
       community.vmware.vmware_portgroup:
-        hostname: "{{ esxi_hostname }}"
+        hostname: "{{ esxi_host }}"
         username: "{{ esxi_username }}"
         password: "{{ esxi_password }}"
         validate_certs: false
-        hosts: ["{{ esxi_hostname }}"]
-        switch: "{{ vswitch_name }}"
-        portgroup: "{{ portgroup_name }}"
-        vlan_id: "{{ vlan_id | default(0) }}"
+        hosts: ["{{ esxi_host }}"]
+        switch: "{{ stor_vswitch_name }}"
+        portgroup: "{{ stor_portgroup }}"
+        vlan_id: "{{ stor_vlan_id }}"
         state: present
       delegate_to: localhost
       register: portgroup_result
 
-    - name: Configure Storage VMkernel Interface
+    - name: Create/Update Storage VMkernel (assign your Storage IP)
       community.vmware.vmware_vmkernel:
-        hostname: "{{ esxi_hostname }}"
+        hostname: "{{ esxi_host }}"
         username: "{{ esxi_username }}"
         password: "{{ esxi_password }}"
         validate_certs: false
-        esxi_hostname: "{{ esxi_hostname }}"
-        vswitch_name: "{{ vswitch_name }}"
-        portgroup_name: "{{ portgroup_name }}"
+        esxi_hostname: "{{ esxi_host }}"
+        vswitch_name: "{{ stor_vswitch_name }}"
+        portgroup_name: "{{ stor_portgroup }}"
         network:
           type: static
-          ip_address: "{{ storage_ip }}"
-          subnet_mask: "{{ storage_netmask }}"
+          ip_address: "{{ stor_ip }}"
+          subnet_mask: "{{ stor_netmask }}"
         state: present
       delegate_to: localhost
       register: vmkernel_result
 
-    - name: Set standard output
+    - name: "Show Storage vSwitch configuration result"
+      debug:
+        msg: "✅ Storage vSwitch '{{ stor_vswitch_name }}' configured with portgroup '{{ stor_portgroup }}' and VMkernel IP {{ stor_ip }}"
+
+    - name: "Standardized output"
       set_fact:
-        # Legacy compatibility
-        storage_vswitch_result:
-          vswitch: "{{ vswitch_result }}"
-          portgroup: "{{ portgroup_result }}"
-          vmkernel: "{{ vmkernel_result }}"
-        # Standard output structure
         workflow_results:
           storage_vswitch:
-            esxi_host: "{{ esxi_hostname }}"
-            vswitch_name: "{{ vswitch_name }}"
-            uplink_nics: "{{ uplink_nics }}"
-            portgroup_name: "{{ portgroup_name }}"
-            vlan_id: "{{ vlan_id }}"
-            storage_ip: "{{ storage_ip }}"
-            storage_netmask: "{{ storage_netmask }}"
-            vswitch_changed: "{{ vswitch_result.changed }}"
-            portgroup_changed: "{{ portgroup_result.changed }}"
-            vmkernel_changed: "{{ vmkernel_result.changed }}"
+            esxi_host: "{{ esxi_host }}"
+            vswitch_name: "{{ stor_vswitch_name }}"
+            uplinks: "{{ stor_uplinks }}"
+            portgroup: "{{ stor_portgroup }}"
+            vlan_id: "{{ stor_vlan_id }}"
+            vmkernel_ip: "{{ stor_ip }}"
+            vmkernel_netmask: "{{ stor_netmask }}"
+            vswitch_status: "{{ 'configured' if vswitch_result.changed else 'already_configured' }}"
+            portgroup_status: "{{ 'configured' if portgroup_result.changed else 'already_configured' }}"
+            vmkernel_status: "{{ 'configured' if vmkernel_result.changed else 'already_configured' }}"
             job_type: "configure_storage_vswitch"
             status: "success"
-            timestamp: "{{ ansible_date_time.iso8601 }}"
-
-    - name: Display results
-      debug:
-        msg: "Storage networking configured on {{ esxi_hostname }}: vSwitch '{{ vswitch_name }}' with portgroup '{{ portgroup_name }}' (VLAN {{ vlan_id }}) and VMkernel IP {{ storage_ip }}/{{ storage_netmask }}"

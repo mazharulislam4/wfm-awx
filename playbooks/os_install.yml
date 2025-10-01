@@ -8,35 +8,37 @@
     - credentials.yml
 
   vars:
-    # Runtime parameters - can be passed via -e or AWX
+    # Runtime parameters - must be passed via extra-vars
     org_moid: "{{ organization_moid }}"
     server_moid: "{{ server_moid }}"
     server_object_type: "{{ server_object_type }}"
     os_image_moid: "{{ os_image_moid }}"
-    scu_image_moid: "{{ scu_image_moid}}"
     config_file_moid: "{{ config_file_moid }}"
+    scu_image_moid: "{{ scu_image_moid }}"
     install_hostname: "{{ install_hostname }}"
     root_password: "{{ root_password }}"
     dns_primary: "{{ dns_primary }}"
     mgmt_ip: "{{ mgmt_ip }}"
     mgmt_netmask: "{{ mgmt_netmask }}"
-    mgmt_gateway: "{{ mgmt_gateway }}"
+    mgmt_gw: "{{ mgmt_gw }}"
 
   tasks:
-    - name: Validate required parameters
+    - name: "Validate required runtime parameters"
       fail:
-        msg: "Missing required parameter: {{ item }}"
-      when: vars[item] is not defined or vars[item] == ''
-      loop:
-        - org_moid
-        - server_moid
-        - os_image_moid
-        - scu_image_moid
-        - config_file_moid
-        - root_password
-        - mgmt_ip
-        - mgmt_gateway
-
+        msg: "Required parameters missing. Pass all required moids and network configuration via -e flags"
+      when: >
+        organization_moid is not defined or organization_moid == "" or
+        server_moid is not defined or server_moid == "" or
+        server_object_type is not defined or server_object_type == "" or
+        os_image_moid is not defined or os_image_moid == "" or
+        config_file_moid is not defined or config_file_moid == "" or
+        scu_image_moid is not defined or scu_image_moid == "" or
+        install_hostname is not defined or install_hostname == "" or
+        root_password is not defined or root_password == "" or
+        dns_primary is not defined or dns_primary == "" or
+        mgmt_ip is not defined or mgmt_ip == "" or
+        mgmt_netmask is not defined or mgmt_netmask == "" or
+        mgmt_gw is not defined or mgmt_gw == ""
     - name: Trigger OS Install
       cisco.intersight.intersight_rest_api:
         api_key_id: "{{ intersight_api_key_id }}"
@@ -45,7 +47,7 @@
         resource_path: "/os/Installs"
         update_method: post
         api_body:
-          Description: "OS Install via Ansible - {{ ansible_date_time.iso8601 }}"
+          Description: "Performing OS Install through Ansible Code"
           InstallMethod: "vMedia"
           Image:
             ObjectType: "softwarerepository.OperatingSystemFile"
@@ -76,7 +78,7 @@
               IpV4Config:
                 IpAddress: "{{ mgmt_ip }}"
                 Netmask: "{{ mgmt_netmask }}"
-                Gateway: "{{ mgmt_gateway }}"
+                Gateway: "{{ mgmt_gw }}"
           InstallTarget:
             ObjectType: "os.VirtualDrive"
             Name: "MStorBootVd"
@@ -84,27 +86,19 @@
             Id: "0"
       register: install_resp
 
-    - name: Validate OS install was triggered
-      fail:
-        msg: "OS install failed to trigger"
-      when: install_resp.api_response is not defined or install_resp.api_response.Moid is not defined
-
-    - name: Set standard output
-      set_fact:
-        # Legacy compatibility
-        os_install_result: "{{ install_resp.api_response }}"
-        # Standard output structure
-        workflow_results:
-          os_install:
-            install_moid: "{{ install_resp.api_response.Moid }}"
-            server_moid: "{{ server_moid }}"
-            mgmt_ip: "{{ mgmt_ip }}"
-            hostname: "{{ install_hostname }}"
-            install_method: "vMedia"
-            job_type: "os_install"
-            status: "initiated"
-            timestamp: "{{ ansible_date_time.iso8601 }}"
-
-    - name: Display results
+    - name: Show OS install response
       debug:
-        msg: "OS install initiated successfully. Install ID: {{ install_resp.api_response.Moid }}, Target server: {{ server_moid }}, Management IP: {{ mgmt_ip }}"
+        var: install_resp.api_response
+
+    - name: "Standardized output"
+      set_fact:
+        workflow_results:
+          os_installation:
+            install_moid: "{{ install_resp.api_response.Moid | default('unknown') }}"
+            server_moid: "{{ server_moid }}"
+            hostname: "{{ install_hostname }}"
+            mgmt_ip: "{{ mgmt_ip }}"
+            install_status: "{{ install_resp.api_response.InstallState | default('initiated') }}"
+            data: "{{ install_resp }}"
+            job_type: "os_install"
+            status: "success"
