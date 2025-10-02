@@ -10,8 +10,8 @@
   vars:
     # Runtime parameters - can be passed via -e or AWX
     org_moid: "{{ steps.step1.organization_moid | default(organization_moid) | default('') }}"
-    srvr_moid: "{{ steps.step5.server_moid | default(server_moid) | default('') }}"
-    srvr_object_type: "{{ steps.step5.server_object_type | default(server_object_type) | default('') }}"
+    srvr_moid: "{{ steps.step4.server_profile_moid | default(server_moid) | default('') }}"
+    srvr_object_type: "{{ steps.step4.server_object_type | default(server_object_type) | default('') }}"
     os_img_moid: "{{ steps.step8.os_image_moid | default(os_image_moid) | default('') }}"
     scu_img_moid: "{{ steps.step10.scu_image_moid | default(scu_image_moid) | default('') }}"
     cnfg_file_moid: "{{ steps.step9.config_file_moid | default(config_file_moid) | default('') }}"

@@ -25,5 +25,5 @@ vmnic6, vmnic7
 255.255.255.0
 
 storage ip :10.21.1.53
-os config file: ESXi7.0ConfigFile
-Ip reservation name:  ReserveIP
+os config file:ESXi7.0ConfigFile
+Ip reservation name:ReserveIP

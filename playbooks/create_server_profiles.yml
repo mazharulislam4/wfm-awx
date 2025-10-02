@@ -82,10 +82,11 @@
             template_used: "{{ template_name | default('unknown') }}"
             resource_pool_used: "{{ pool_name | default('unknown') }}"
           # Single profile MOID for backward compatibility
-          server_profile_moid: "{{ server_profile_creation_result.results[0].api_response.Moid }}"
+          server_profile_moid: "{{ server_profile_creation_result.results[0].Moid }}"
           job_type: "create_server_profiles"
           status: "success"
           count: "{{ server_profile_creation_result.results | length }}"
+          server_object_type: "{{ server_profile_creation_result.results[0].ObjectType | default('unknown') }}"
 
     - name: "Debug workflow output"
       debug:

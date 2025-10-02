@@ -9,8 +9,8 @@
 
   vars:
     # Runtime parameters - can be passed via -e or AWX or chained from fetch_available_ip.yml
-    reservation_name: "{{ ip_reservation_name | network_id | default('auto-reserved-ip') }}"
-    ip_address: "{{ ip_address_to_reserve | steps.step5.ip_allocation.available_ip | ip_allocation.available_ip | available_ip | default('') }}"
+    reservation_name: "{{ ip_reservation_name | default('auto-reserved-ip') }}"
+    ip_address: "{{ ip_address_to_reserve | default(steps.step5.ip_allocation.available_ip | default('')) }}"
     comment: "{{ reservation_comment | default('Reserved via Ansible automation') }}"
     match_client: "{{ match_client_type | default('RESERVED') }}"
     api_url: "{{ infoblox_api_url | default('') }}"
@@ -37,7 +37,7 @@
         body_format: json
         body:
           name: "{{ reservation_name }}"
-          ipv4addr: "{{ ip_to_reserve }}"
+          ipv4addr: "{{ ip_to_reserve | default(ip_address) }}"
           comment: "{{ reservation_comment }}"
           match_client: "RESERVED"
         validate_certs: false
@@ -48,14 +48,14 @@
 
     - name: "Show reservation details"
       debug:
-        msg: "✅ Reserved IP {{ ip_to_reserve }} with name '{{ reservation_name }}' Ip address {{ ip_address}} "
+        msg: "✅ Reserved IP {{ ip_to_reserve | default(ip_address) }} with name '{{ reservation_name }}' Ip address {{ ip_address}} "
 
     - name: "Standardized output"
       set_fact:
         workflow_results:
           ip_reservation:
             name: "{{ reservation_name }}"
-            reserved_ip: "{{ ip_to_reserve }}"
+            reserved_ip: "{{ ip_to_reserve | default(ip_address) }}"
             comment: "{{ reservation_comment }}"
             reservation_ref: "{{ ip_response.json if ip_response.json is string else ip_response.json | string }}"
             data: "{{ ip_response }}"
