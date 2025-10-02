@@ -12,7 +12,7 @@
     # mgmt_ip from Step 12 which is the host now
     # install_hostname from Step 12 which is username
     # root_password from Step 12
-    esxi_hostname: "{{ steps.step11.os_installation.management_ip | default(mgmt_ip) | default('') }}"
+    esxi_hostname: "{{ steps.step11.os_installation.mgmt_ip | default(mgmt_ip) | default('') }}"
     esxi_username: "{{ steps.step11.os_installation.hostname | default(esxi_username) | default('root') }}"
     esxi_password: "{{ steps.step11.os_installation.password | default(esxi_password) | default('') }}"
     switch_name: "{{ vmotion_vswitch | default('vSwitch3') }}"
