@@ -10,9 +10,9 @@
   vars:
     # Runtime parameters - passed from previous steps or command line
     # Fixed: Use proper fallback syntax
-    org_moid: "{{ Lookup_Organization_Moid.moid | default(organization.moid | default(steps.step1.organization.moid | default(''))) }}"
-    pool_moid: "{{ resource_pool_moid | default(resource_pool.moid | default(steps.step2.resource_pool.moid | default(''))) }}"
-    template_moid: "{{ steps.step3.server_profile_template.moid | default(steps.step3.server_profile_template.moid | default(server_profile_template_moid | default(''))) }}"
+    org_moid: "{{ steps.step1.organization.moid | default(Lookup_Organization_Moid.moid | default(organization.moid | default(organization_moid | default('')))) }}"
+    pool_moid: "{{ steps.step2.resource_pool.moid | default(resource_pool_moid | default(resource_pool.moid | default(''))) }}"
+    template_moid: "{{ steps.step3.server_profile_template.moid | default(server_profile_template_moid | default('')) }}"
 
     profiles_to_create: >-
       {{
@@ -23,6 +23,27 @@
       }}
 
   tasks:
+    - name: "Debug variable values"
+      debug:
+        msg: |
+          Variable values retrieved:
+          =========================
+          org_moid: {{ org_moid }}
+          pool_moid: {{ pool_moid }}
+          template_moid: {{ template_moid }}
+
+          Raw step variables (if available):
+          ==================================
+          steps.step1.organization.moid: {{ steps.step1.organization.moid | default('NOT_SET') }}
+          steps.step2.resource_pool.moid: {{ steps.step2.resource_pool.moid | default('NOT_SET') }}
+          steps.step3.server_profile_template.moid: {{ steps.step3.server_profile_template.moid | default('NOT_SET') }}
+
+          Fallback variables:
+          ==================
+          organization_moid: {{ organization_moid | default('NOT_SET') }}
+          resource_pool_moid: {{ resource_pool_moid | default('NOT_SET') }}
+          server_profile_template_moid: {{ server_profile_template_moid | default('NOT_SET') }}
+
     - name: "Validate required runtime parameters"
       fail:
         msg: "Required parameters missing. Pass: -e 'server_profile_template_moid=xxx resource_pool_moid=yyy organization_moid=zzz'"
