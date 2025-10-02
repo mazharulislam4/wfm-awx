@@ -23,6 +23,32 @@
     management_gw: "{{ mgmt_gw }}"
 
   tasks:
+    - name: "Debug variable values"
+      debug:
+        msg: |
+          Variable values retrieved:
+          =========================
+          org_moid: {{ org_moid }}
+          srvr_moid: {{ srvr_moid }}
+          srvr_object_type: {{ srvr_object_type }}
+          os_img_moid: {{ os_img_moid }}
+          scu_img_moid: {{ scu_img_moid }}
+          cnfg_file_moid: {{ cnfg_file_moid }}
+          hostname: {{ hostname }}
+          password: {{ password }}
+          dns_primary_address: {{ dns_primary_address }}
+          management_ip: {{ management_ip }}
+          management_netmask: {{ management_netmask }}
+          management_gw: {{ management_gw }}
+
+          Raw step variables (if available):
+          ==================================
+          steps.step1.organization_moid: {{ steps.step1.organization_moid | default('NOT_SET') }}
+          steps.step4.server_profile_moid: {{ steps.step4.server_profile_moid | default('NOT_SET') }}
+          steps.step8.os_image.moid: {{ steps.step8.os_image.moid | default('NOT_SET') }}
+          steps.step9.os_config_file.moid: {{ steps.step9.os_config_file.moid | default('NOT_SET') }}
+          steps.step10.scu_image.moid: {{ steps.step10.scu_image.moid | default('NOT_SET') }}
+
     - name: "Validate required runtime parameters"
       fail:
         msg: "Required parameters missing. Pass all required moids and network configuration via -e flags"
