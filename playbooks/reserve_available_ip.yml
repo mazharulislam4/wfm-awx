@@ -38,8 +38,8 @@
         body:
           name: "{{ reservation_name }}"
           ipv4addr: "{{ ip_to_reserve | default(ip_address) }}"
-          comment: "{{ reservation_comment }}"
-          match_client: "RESERVED"
+          comment: "{{ comment }}"
+          match_client: "{{ match_client }}"
         validate_certs: false
         return_content: true
         timeout: 30
@@ -56,7 +56,7 @@
           ip_reservation:
             name: "{{ reservation_name }}"
             reserved_ip: "{{ ip_to_reserve | default(ip_address) }}"
-            comment: "{{ reservation_comment }}"
+            comment: "{{ comment }}"
             reservation_ref: "{{ ip_response.json if ip_response.json is string else ip_response.json | string }}"
             data: "{{ ip_response }}"
             job_type: "reserve_available_ip"
