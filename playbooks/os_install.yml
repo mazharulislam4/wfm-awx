@@ -18,7 +18,7 @@
     hostname: "{{ install_hostname | default('') }}"
     password: "{{ root_password }}"
     dns_primary_address: "{{ dns_primary }}"
-    management_ip: "{{ steps.step6.mgmt_ip | default(mgmt_ip) | default('') }}"
+    management_ip: "{{ mgmt_ip | default('') }}"
     management_netmask: "{{ mgmt_netmask }}"
     management_gw: "{{ mgmt_gw }}"
 
