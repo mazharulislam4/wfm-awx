@@ -1,0 +1,5 @@
+configure_mgmt_vswitch:
+  vars:
+    - install_hostname: "root" # Ref:
+    - root_password: "P@ssw0rd!23" # Ref:
+    - dns_primary: "8.8.8.8"
