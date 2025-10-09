@@ -42,6 +42,20 @@ jobs:
           # Copy server files
           Copy-Item -Recurse "server\*" ".deploy\"
 
+          # Create .env file if secrets are available
+          $envContent = "${{ secrets.ENV_PROD }}"
+          if ($envContent -and '${{ github.ref }}' -eq 'refs/heads/main') {
+            Write-Host "Creating .env file for production..."
+            Set-Content -Path ".deploy\.env" -Value $envContent -Encoding UTF8
+          } elseif ("${{ secrets.ENV_DEV }}" -and '${{ github.ref }}' -eq 'refs/heads/dev') {
+            $envContent = "${{ secrets.ENV_DEV }}"
+            Write-Host "Creating .env file for staging..."
+            Set-Content -Path ".deploy\.env" -Value $envContent -Encoding UTF8
+          } else {
+            Write-Host "No environment secrets found, creating empty .env file..."
+            Set-Content -Path ".deploy\.env" -Value "" -Encoding UTF8
+          }
+
           # Create zip archive
           Compress-Archive -Path ".deploy\*" -DestinationPath "deploy.zip" -Force
 
@@ -177,39 +191,74 @@ jobs:
           $deployLines = @(
             "#!/bin/bash",
             "set -euo pipefail",
-            "cd $deployPath",
             "",
-            "echo `"Starting deployment to $envName...`"",
+            "echo 'Starting deployment to $envName...'",
+            "echo 'Deploy path: $deployPath'",
+            "",
+            "# Change to deploy directory",
+            "cd $deployPath || { echo 'ERROR: Cannot change to deploy directory'; exit 1; }",
             "",
             "# Extract deploy bundle",
-            "echo `"Extracting deploy bundle...`"",
-            "unzip -o deploy.zip",
+            "echo 'Extracting deploy bundle...'",
+            "if [ -f deploy.zip ]; then",
+            "  unzip -o deploy.zip",
+            "else",
+            "  echo 'ERROR: deploy.zip not found'",
+            "  exit 1",
+            "fi",
+            "",
+            "# Check if docker-compose.yml exists",
+            "if [ ! -f docker-compose.yml ]; then",
+            "  echo 'ERROR: docker-compose.yml not found after extraction'",
+            "  echo 'Contents of directory:'",
+            "  ls -la",
+            "  exit 1",
+            "fi",
+            "",
+            "# Create .env file if it doesn't exist",
+            "if [ ! -f .env ]; then",
+            "  echo 'Creating empty .env file...'",
+            "  touch .env",
+            "fi",
             "",
             "# Stop existing containers",
-            "echo `"Stopping existing containers...`"",
-            "docker-compose down || true",
+            "echo 'Stopping existing containers...'",
+            "docker-compose down 2>&1 || echo 'No existing containers to stop'",
+            "",
+            "# Check if Docker is running",
+            "if ! docker info > /dev/null 2>&1; then",
+            "  echo 'ERROR: Docker is not running or not accessible'",
+            "  exit 1",
+            "fi",
             "",
             "# Start services",
-            "echo `"Starting services...`"",
-            "docker-compose up --build -d",
+            "echo 'Starting services...'",
+            "docker-compose up --build -d 2>&1",
+            "",
+            "if [ \$? -ne 0 ]; then",
+            "  echo 'ERROR: Failed to start services'",
+            "  echo 'Checking docker-compose logs:'",
+            "  docker-compose logs --tail=30",
+            "  exit 1",
+            "fi",
             "",
             "# Wait for services to start",
-            "echo `"Waiting for services to start...`"",
+            "echo 'Waiting for services to start...'",
             "sleep 10",
             "",
             "# Show running containers",
-            "echo `"Running containers:`"",
-            "docker ps --format `"table {{.Names}}\t{{.Status}}\t{{.Ports}}`"",
+            "echo 'Running containers:'",
+            "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'",
             "",
             "# Check service health",
-            "echo `"Checking service health...`"",
+            "echo 'Checking service health...'",
             "docker-compose ps",
             "",
             "# Show recent logs",
-            "echo `"Recent logs:`"",
+            "echo 'Recent logs:'",
             "docker-compose logs --tail=20 || true",
             "",
-            "echo `"Successfully deployed to $envName`""
+            "echo 'Successfully deployed to $envName'"
           )
 
           $deployScript = $deployLines -join "`n"
@@ -251,16 +300,33 @@ jobs:
           )
 
           Write-Host "Executing deployment on remote server..."
+          Write-Host "----------------------------------------"
           & ssh @sshArgs
+          $deployExitCode = $LASTEXITCODE
 
-          if ($LASTEXITCODE -ne 0) {
-            Write-Error "Deployment failed with exit code $LASTEXITCODE"
+          # Clean up local temp file
+          Remove-Item -Path $tempScript -Force -ErrorAction SilentlyContinue
+
+          if ($deployExitCode -ne 0) {
+            Write-Host "----------------------------------------"
+            Write-Error "Deployment failed with exit code $deployExitCode"
+            Write-Host "Fetching deployment logs for troubleshooting..."
+            
+            # Try to get more details from the server
+            $logArgs = @(
+              "-i", $sshKeyPath
+              "-p", "22"
+              "-o", "StrictHostKeyChecking=no"
+              "-o", "UserKnownHostsFile=NUL"
+              "$env:SERVER_USER@$env:SERVER_HOST"
+              "cd $deployPath && docker-compose logs --tail=50 2>&1 || echo 'No logs available'"
+            )
+            & ssh @logArgs
+            
             exit 1
           }
 
-          # Clean up
-          Remove-Item -Path $tempScript -Force -ErrorAction SilentlyContinue
-
+          Write-Host "----------------------------------------"
           Write-Host "Deployment completed successfully!"
 
       - name: Cleanup SSH key
