@@ -55,9 +55,11 @@ jobs:
           }
 
           # Show what's being deployed
-          Write-Host "`nProject structure being deployed:"
+          Write-Host ""
+          Write-Host "Project structure being deployed:"
           Get-ChildItem -Path ".deploy" -Recurse -Directory | Select-Object -First 10 | ForEach-Object {
-            Write-Host "  📁 $($_.FullName.Replace((Get-Item '.deploy').FullName, ''))"
+            $relativePath = $_.FullName.Replace((Get-Item '.deploy').FullName, '')
+            Write-Host "  - $relativePath"
           }
 
           # Create tar archive
@@ -65,12 +67,14 @@ jobs:
             Remove-Item "deploy.zip" -Force
           }
 
-          Write-Host "`nCreating deployment archive..."
+          Write-Host ""
+          Write-Host "Creating deployment archive..."
           tar -czf deploy.zip -C .deploy .
 
           # Show archive info
           $zipInfo = Get-Item "deploy.zip"
-          Write-Host "`nDeploy package created:"
+          Write-Host ""
+          Write-Host "Deploy package created:"
           Write-Host "   Size: $([math]::Round($zipInfo.Length / 1KB, 2)) KB"
 
       - name: Prepare SSH key
