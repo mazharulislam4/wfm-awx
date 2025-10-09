@@ -25,16 +25,25 @@ jobs:
           "@
           $keyContent | Out-File -FilePath "$sshDir\deploy_key" -Encoding ASCII -NoNewline
 
+      - name: Test network connectivity
+        shell: cmd
+        run: |
+          echo Testing connection to ${{ secrets.SERVER_HOST }}...
+          ping -n 4 ${{ secrets.SERVER_HOST }}
+          echo.
+          echo Testing SSH port 22...
+          powershell -Command "Test-NetConnection -ComputerName ${{ secrets.SERVER_HOST }} -Port 22 -InformationLevel Detailed"
+
       - name: Copy files to remote server
         shell: cmd
         run: |
           wsl chmod 600 /mnt/c/Users/%USERNAME%/.ssh/deploy_key
-          wsl scp -i /mnt/c/Users/%USERNAME%/.ssh/deploy_key -o StrictHostKeyChecking=no -r ./server/* ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:~/wfm-awx/server/
+          wsl scp -i /mnt/c/Users/%USERNAME%/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 -r ./server/* ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:~/wfm-awx/server/
 
       - name: Run Docker Compose remotely
         shell: cmd
         run: |
-          wsl ssh -i /mnt/c/Users/%USERNAME%/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cd ~/wfm-awx/server && if [ '${{ github.ref }}' = 'refs/heads/main' ]; then docker-compose -f docker-compose.yml up --build -d; elif [ '${{ github.ref }}' = 'refs/heads/dev' ]; then docker-compose -f docker-compose.yml up --build -d; fi"
+          wsl ssh -i /mnt/c/Users/%USERNAME%/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cd ~/wfm-awx/server && if [ '${{ github.ref }}' = 'refs/heads/main' ]; then docker-compose -f docker-compose.yml up --build -d; elif [ '${{ github.ref }}' = 'refs/heads/dev' ]; then docker-compose -f docker-compose.yml up --build -d; fi"
 
       - name: Cleanup SSH key
         if: always()
