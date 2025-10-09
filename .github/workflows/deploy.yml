@@ -39,86 +39,21 @@ jobs:
           }
           New-Item -ItemType Directory -Force -Path ".deploy" | Out-Null
 
-          # Copy server files - flatten the structure to avoid Windows path issues
-          Get-ChildItem -Path "server" -Recurse -File | ForEach-Object {
-            $relativePath = $_.FullName.Substring((Get-Item "server").FullName.Length + 1)
-            $targetPath = Join-Path ".deploy" $relativePath
-            $targetDir = Split-Path $targetPath -Parent
-            
-            if ($targetDir -and !(Test-Path $targetDir)) {
-              New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
-            }
-            
-            Copy-Item $_.FullName -Destination $targetPath -Force
-          }
+          # Copy all server files
+          Copy-Item -Path "server\*" -Destination ".deploy\" -Recurse -Force
 
-          # Create .env file if secrets are available
-          $envContent = "${{ secrets.ENV_PROD }}"
-          if ($envContent -and '${{ github.ref }}' -eq 'refs/heads/main') {
-            Write-Host "Creating .env file for production..."
-            Set-Content -Path ".deploy\.env" -Value $envContent -Encoding UTF8
-          } elseif ("${{ secrets.ENV_DEV }}" -and '${{ github.ref }}' -eq 'refs/heads/dev') {
-            $envContent = "${{ secrets.ENV_DEV }}"
-            Write-Host "Creating .env file for staging..."
-            Set-Content -Path ".deploy\.env" -Value $envContent -Encoding UTF8
-          } else {
-            Write-Host "No environment secrets found, creating empty .env file..."
-            Set-Content -Path ".deploy\.env" -Value "" -Encoding UTF8
-          }
-
-          # Create zip archive with proper forward slashes for Linux compatibility
-          Add-Type -AssemblyName System.IO.Compression.FileSystem
-
-          # Remove old zip if exists
+          # Create zip using .NET (simpler approach)
           if (Test-Path "deploy.zip") {
             Remove-Item "deploy.zip" -Force
           }
 
-          $zipPath = Join-Path (Get-Location) "deploy.zip"
-          $deployDir = (Resolve-Path ".deploy").Path
-
-          # Create zip file manually to control path separators
-          $zip = [System.IO.Compression.ZipFile]::Open($zipPath, [System.IO.Compression.ZipArchiveMode]::Create)
-
-          try {
-            # Add all files with forward slashes
-            Get-ChildItem -Path $deployDir -Recurse -File | ForEach-Object {
-              $relativePath = $_.FullName.Substring($deployDir.Length + 1)
-              # Replace backslashes with forward slashes for Linux compatibility
-              $entryName = $relativePath.Replace('\', '/')
-              
-              Write-Verbose "Adding: $entryName"
-              $entry = $zip.CreateEntry($entryName, [System.IO.Compression.CompressionLevel]::Optimal)
-              
-              $entryStream = $entry.Open()
-              $fileStream = [System.IO.File]::OpenRead($_.FullName)
-              
-              try {
-                $fileStream.CopyTo($entryStream)
-              }
-              finally {
-                $fileStream.Close()
-                $entryStream.Close()
-              }
-            }
-          }
-          finally {
-            $zip.Dispose()
-          }
+          # Use tar command which is available on Windows 10+ and creates proper cross-platform archives
+          tar -czf deploy.zip -C .deploy .
 
           # Show zip file info
           $zipInfo = Get-Item "deploy.zip"
           Write-Host "Deploy package created:"
           Write-Host "   Size: $([math]::Round($zipInfo.Length / 1KB, 2)) KB"
-
-          # Verify contents
-          Write-Host "Contents of deploy.zip:"
-          $zipRead = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
-          $zipRead.Entries | Select-Object -First 20 | ForEach-Object { Write-Host "   - $($_.FullName)" }
-          if ($zipRead.Entries.Count -gt 20) {
-            Write-Host "   ... and $($zipRead.Entries.Count - 20) more files"
-          }
-          $zipRead.Dispose()
 
       - name: Prepare SSH key
         shell: powershell
@@ -251,77 +186,32 @@ jobs:
             "echo 'Starting deployment to $envName...'",
             "echo 'Deploy path: $deployPath'",
             "",
-            "# Change to deploy directory",
             "cd $deployPath || { echo 'ERROR: Cannot change to deploy directory'; exit 1; }",
             "",
-            "# Extract deploy bundle",
             "echo 'Extracting deploy bundle...'",
-            "if [ -f deploy.zip ]; then",
-            "  unzip -o deploy.zip",
-            "else",
-            "  echo 'ERROR: deploy.zip not found'",
-            "  exit 1",
-            "fi",
+            "tar -xzf deploy.zip",
             "",
-            "echo 'Extraction completed. Checking files...'",
+            "echo 'Files extracted:'",
             "ls -la",
             "",
-            "# Check if docker-compose.yml exists",
             "if [ ! -f docker-compose.yml ]; then",
-            "  echo 'ERROR: docker-compose.yml not found after extraction'",
+            "  echo 'ERROR: docker-compose.yml not found'",
             "  exit 1",
             "fi",
             "",
-            "echo 'docker-compose.yml found'",
-            "",
-            "# Create .env file if it doesn't exist (though it should from the zip)",
-            "if [ ! -f .env ]; then",
-            "  echo 'WARNING: .env file not found, creating empty one...'",
-            "  touch .env",
-            "else",
-            "  echo '.env file exists'",
-            "fi",
-            "",
-            "# Stop existing containers",
             "echo 'Stopping existing containers...'",
-            "docker-compose down 2>&1 || echo 'No existing containers to stop'",
+            "docker-compose down || true",
             "",
-            "# Check if Docker is running",
-            "echo 'Checking Docker status...'",
-            "if ! docker info > /dev/null 2>&1; then",
-            "  echo 'ERROR: Docker is not running or not accessible'",
-            "  docker info || true",
-            "  exit 1",
-            "fi",
-            "",
-            "echo 'Docker is running'",
-            "",
-            "# Start services",
-            "echo 'Starting services with docker-compose...'",
+            "echo 'Starting services...'",
             "docker-compose up --build -d",
             "",
-            "if [ \$? -ne 0 ]; then",
-            "  echo 'ERROR: Failed to start services'",
-            "  echo 'Checking docker-compose logs:'",
-            "  docker-compose logs --tail=30 || true",
-            "  exit 1",
-            "fi",
-            "",
-            "# Wait for services to start",
-            "echo 'Waiting for services to start...'",
             "sleep 10",
             "",
-            "# Show running containers",
             "echo 'Running containers:'",
-            "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'",
+            "docker ps",
             "",
-            "# Check service health",
-            "echo 'Checking service health...'",
-            "docker-compose ps",
-            "",
-            "# Show recent logs",
-            "echo 'Recent logs:'",
-            "docker-compose logs --tail=20 || true",
+            "echo 'Container logs:'",
+            "docker-compose logs --tail=20",
             "",
             "echo 'Successfully deployed to $envName'"
           )
