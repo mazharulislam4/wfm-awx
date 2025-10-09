@@ -109,7 +109,7 @@ jobs:
             exit 1
           }
 
-          Write-Host "✓ Connection to $env:SERVER_HOST:22 successful"
+          Write-Host "Connection to $env:SERVER_HOST:22 successful"
 
       - name: Upload deploy bundle
         shell: powershell
@@ -161,7 +161,7 @@ jobs:
             exit 1
           }
 
-          Write-Host "✓ Deploy bundle uploaded successfully"
+          Write-Host "Deploy bundle uploaded successfully"
 
       - name: Deploy to ${{ steps.env.outputs.ENV_NAME }}
         shell: powershell
@@ -209,7 +209,7 @@ jobs:
             "echo `"Recent logs:`"",
             "docker-compose logs --tail=20 || true",
             "",
-            "echo `"✓ Successfully deployed to $envName`""
+            "echo `"Successfully deployed to $envName`""
           )
 
           $deployScript = $deployLines -join "`n"
@@ -261,11 +261,11 @@ jobs:
           # Clean up
           Remove-Item -Path $tempScript -Force -ErrorAction SilentlyContinue
 
-          Write-Host "✓ Deployment completed successfully!"
+          Write-Host "Deployment completed successfully!"
 
       - name: Cleanup SSH key
         if: always()
         shell: powershell
         run: |
           Remove-Item -Path "$env:USERPROFILE\.ssh\id_deploy" -ErrorAction SilentlyContinue
-          Write-Host "✓ SSH key cleaned up"
+          Write-Host "SSH key cleaned up"
