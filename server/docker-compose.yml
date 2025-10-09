@@ -1,0 +1,14 @@
+services:
+  wfm-awx-fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wfm-awx-fastapi
+    env_file:
+      - .env
+    ports:
+      - "8070:8070"
+    volumes:
+      - ./:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8070
+    restart: always

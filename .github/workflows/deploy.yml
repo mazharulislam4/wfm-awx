@@ -1,0 +1,42 @@
+name: Deploy FastAPI with Docker Compose
+
+on:
+    push:
+        branches:
+            - dev
+            - main
+
+jobs:
+    deploy:
+        runs-on: [self-hosted, windows, x64]
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v3
+
+            - name: Copy files to remote server
+              uses: appleboy/scp-action@v0.1.4
+              with:
+                  host: ${{ secrets.SERVER_HOST }}
+                  username: ${{ secrets.SERVER_USER }}
+                  key: ${{ secrets.SERVER_SSH_KEY }}
+                  port: 22
+                  source: "./server/*"
+                  target: "~/wfm-awx"
+
+            - name: Run Docker Compose remotely
+              uses: appleboy/ssh-action@v1.0.0
+              with:
+                  host: ${{ secrets.SERVER_HOST }}
+                  username: ${{ secrets.SERVER_USER }}
+                  key: ${{ secrets.SERVER_SSH_KEY }}
+                  port: 22
+                  script: |
+                      cd ~/wfm-awx/server
+                      if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+                        # echo "${{ secrets.ENV_PROD }}" > .env.prod
+                        docker-compose -f docker-compose.yml up --build -d
+                      elif [ "${{ github.ref }}" = "refs/heads/dev" ]; then
+                        # echo "${{ secrets.ENV_DEV }}" > .env.dev
+                        docker-compose -f docker-compose.yml up --build -d
+                      fi

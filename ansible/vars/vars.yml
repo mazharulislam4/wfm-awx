@@ -1,5 +1,113 @@
-configure_mgmt_vswitch:
+lookup_organization:
+  name: lookupOrganization
   vars:
-    - install_hostname: "root" # Ref:
-    - root_password: "P@ssw0rd!23" # Ref:
-    - dns_primary: "8.8.8.8"
+    - organization_name: "default"
+
+lookup_resource_pool:
+  name: lookupResourcePool
+  vars:
+    - resource_pool_name: "FredHutch_RP"
+
+lookup_server_profile_template:
+  name: lookupServerProfileTemplate
+  vars:
+    - server_profile_template_name: "VZURE_UCSX_SP_TEMPLATE"
+
+create_server_profiles:
+  name: createServerProfiles
+  vars:
+    - organization_moid: 68701e436972653101590c8e
+    - resource_pool_moid: "689249df6962753101595797"
+    - server_profile_template_moid: "6870975277696e3201d29a7c"
+    - server_profile_info:
+        - name: "SP-001"
+          description: "Server Profile 001 derived from VZURE template"
+
+fetch_available_ip:
+  name: fetchAvailableIp
+  vars:
+    - network_id: "10.50.1.0/24"
+
+reserve_available_ip:
+  name: reserveAvailableIp
+  vars:
+    - ip_reservation_name: "ReserveIP"
+
+lookup_server_with_server_profile:
+  name: lookupServerWithServerProfile
+  vars:
+    - server_profile_moid: "68d5bad777696e3201f63e18"
+
+lookup_os_image:
+  name: lookupOsImage
+  vars:
+    - os_image_name: "VMware ESXi 7 Update 3"
+
+lookup_os_config_file:
+  name: lookupOsConfigFile
+  vars:
+    - config_file_name: "ESXi7.0ConfigFile"
+
+lookup_scu_image:
+  name: lookupScuImage
+  vars:
+    - scu_image_name: "ucs-scu-7.1.4.250200"
+
+os_install:
+  name: osInstall
+  vars:
+    - organization_moid: "68701e436972653101590c8e"
+    - server_moid: "68d577a777696e3201f343c6"
+    - server_object_type: "compute.Blade"
+    - os_image_moid: "689df5d4656761310115bf9e"
+    - config_file_moid: "60385ca6fe80db55aecd5bed"
+    - scu_image_moid: "68a65d5c656761310159cae9"
+    - hostname: "root"
+    - password: "P@ssw0rd!23"
+    - dns_primary_address: "8.8.8.8"
+    - management_ip: "10.21.1.52"
+    - management_netmask: "255.255.255.0"
+    - management_gateway: "10.21.1.254"
+
+configure_mgmt_vswitch:
+  name: configureMgmtVswitch
+  vars:
+    - management_ip: "10.21.1.52"
+    - hostname: "root"
+    - password: "P@ssw0rd!23"
+    - management_vswitch: "vSwitch0"
+    - management_uplinks: "vmnic0,vmnic1"
+
+configure_storage_vswitch:
+  name: configureStorageVswitch
+  vars:
+    - management_ip: "10.21.1.53"
+    - hostname: "root"
+    - password: "P@ssw0rd!23"
+    - storage_vswitch: "vSwitch1"
+    - storage_uplinks: "vmnic2,vmnic3"
+    - storage_vlan_id: "0"
+    - portgroup_name: "Storage"
+    - netmask: "255.255.255.0"
+
+configure_vmnetwork_vswitch:
+  name: configureVmnetworkVswitch
+  vars:
+    - management_ip: "10.21.1.52"
+    - hostname: "root"
+    - password: "P@ssw0rd!23"
+    - vmnetwork_vswitch: "vSwitch2"
+    - vmnetwork_uplinks: "vmnic4,vmnic5"
+
+configure_vmotion_vswitch:
+  name: configureVmotionVswitch
+  vars:
+    - management_ip: "10.21.1.52"
+    - hostname: "root"
+    - password: "P@ssw0rd!23"
+    - vmotion_vswitch: "vSwitch3"
+    - vmotion_uplinks: "vmnic6,vmnic7"
+    - portgroup_name: "vMotion"
+    - vlan_id: "0"
+    - netmask: "255.255.255.0"
+    - vmotion_ip_address: "10.21.1.54"
