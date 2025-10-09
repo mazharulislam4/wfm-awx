@@ -3,3 +3,12 @@ TASK=$(kubectl -n awx get pod -l app.kubernetes.io/name=wfm-awx-task -o jsonpath
 echo $TASK
 
 kubectl cp ./playbooks/. "$TASK":/var/lib/awx/projects/wfm-awx/playbooks -c wfm-awx-task -n awx
+
+---- build ansible ----
+REG="ghcr.io/mazharulislam4"
+IMG="$REG/wfm-ee:latest"
+
+ansible-builder build \
+  -t ghcr.io/mazharulislam4/wfm-ee:latest \
+  -v3 \
+  --container-runtime docker

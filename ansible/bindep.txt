@@ -1,0 +1,6 @@
+# tools often needed
+git
+jq
+sshpass
+tar
+unzip

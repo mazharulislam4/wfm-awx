@@ -1,68 +1,68 @@
 name: Build & Publish AWX Execution Environment
 
 on:
-    workflow_dispatch:
-    push:
-        branches: [main]
-        paths:
-            - "ee/**"
-            - ".github/workflows/publish-ee.yml"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "ansible/ee/**"
+      - ".github/workflows/publish-ee.yml"
 
 permissions:
-    contents: read
-    packages: write # allow push to GHCR
+  contents: read
+  packages: write # allow push to GHCR
 
 env:
-    OWNER: ${{ github.repository_owner }}
-    IMAGE: ghcr.io/${{ github.repository_owner }}/wfm-ee
-    TAG: intersight-latest
+  OWNER: ${{ github.repository_owner }}
+  IMAGE: ghcr.io/${{ github.repository_owner }}/wfm-ee
+  TAG: intersight-latest
 
 jobs:
-    build-push:
-        runs-on: ubuntu-latest
-        permissions:
-            contents: read
-            packages: write # some orgs require this at job-level too
+  build-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # some orgs require this at job-level too
 
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            - name: Set up Buildx
-              uses: docker/setup-buildx-action@v3
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
 
-            - name: Log in to GHCR
-              uses: docker/login-action@v3
-              with:
-                  registry: ghcr.io
-                  username: ${{ github.actor }}
-                  password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Install ansible-builder
-              run: |
-                  python3 -m pip install --upgrade pip
-                  python3 -m pip install "ansible-builder>=3,<4"
+      - name: Install ansible-builder
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install "ansible-builder>=3,<4"
 
-            # This generates ./context and ./context/Dockerfile
-            - name: Make build context (ansible-builder)
-              run: |
-                  python3 -m ansible_builder build \
-                    -f ee/execution-environment.yml \
-                    -t local-sanity:tmp \
-                    --container-runtime docker \
-                    --verbosity 3
+      # This generates ./context and ./context/Dockerfile
+      - name: Make build context (ansible-builder)
+        run: |
+          python3 -m ansible_builder build \
+            -f ansible/ee/execution-environment.yml \
+            -t local-sanity:tmp \
+            --container-runtime docker \
+            --verbosity 3
 
-            - name: Show generated Dockerfile (debug)
-              run: sed -n '1,120p' context/Dockerfile || true
+      - name: Show generated Dockerfile (debug)
+        run: sed -n '1,120p' context/Dockerfile || true
 
-            - name: Build & Push image to GHCR
-              uses: docker/build-push-action@v5
-              with:
-                  context: context
-                  file: context/Dockerfile
-                  push: true
-                  tags: |
-                      ${{ env.IMAGE }}:${{ env.TAG }}
-                      ${{ env.IMAGE }}:latest
-                  cache-from: type=gha
-                  cache-to: type=gha,mode=max
+      - name: Build & Push image to GHCR
+        uses: docker/build-push-action@v5
+        with:
+          context: context
+          file: context/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ env.TAG }}
+            ${{ env.IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
