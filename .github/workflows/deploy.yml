@@ -1,10 +1,15 @@
-name: Deploy FastAPI with Docker Compose
+name: Deploy to Staging and Production
 
 on:
   push:
     branches:
       - dev
       - main
+
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   deploy:
     runs-on: [self-hosted, windows, x64]
@@ -13,40 +18,254 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup SSH key
+      - name: Determine environment
+        id: env
         shell: powershell
         run: |
-          $sshDir = "$env:USERPROFILE\.ssh"
-          if (-not (Test-Path $sshDir)) {
-            New-Item -ItemType Directory -Path $sshDir -Force
+          if ('${{ github.ref }}' -eq 'refs/heads/main') {
+            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "ENV_NAME=Production`n")
+            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "DEPLOY_PATH=~/wfm-awx/production`n")
+          } else {
+            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "ENV_NAME=Staging`n")
+            [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "DEPLOY_PATH=~/wfm-awx/staging`n")
           }
-          $keyContent = @"
-          ${{ secrets.SERVER_SSH_KEY }}
-          "@
-          $keyContent | Out-File -FilePath "$sshDir\deploy_key" -Encoding ASCII -NoNewline
 
-      - name: Test network connectivity
-        shell: cmd
+      - name: Package deploy payload
+        shell: powershell
         run: |
-          echo Testing connection to ${{ secrets.SERVER_HOST }}...
-          ping -n 4 ${{ secrets.SERVER_HOST }}
-          echo.
-          echo Testing SSH port 22...
-          powershell -Command "Test-NetConnection -ComputerName ${{ secrets.SERVER_HOST }} -Port 22 -InformationLevel Detailed"
+          # Clean up previous deploy directory
+          if (Test-Path ".deploy") {
+            Remove-Item -Recurse -Force ".deploy"
+          }
+          New-Item -ItemType Directory -Force -Path ".deploy" | Out-Null
 
-      - name: Copy files to remote server
-        shell: cmd
-        run: |
-          wsl chmod 600 /mnt/c/Users/%USERNAME%/.ssh/deploy_key
-          wsl scp -i /mnt/c/Users/%USERNAME%/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 -r ./server/* ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:~/wfm-awx/server/
+          # Copy server files
+          Copy-Item -Recurse "server\*" ".deploy\"
 
-      - name: Run Docker Compose remotely
-        shell: cmd
+          # Create zip archive
+          Compress-Archive -Path ".deploy\*" -DestinationPath "deploy.zip" -Force
+
+          # Show zip file info
+          $zipInfo = Get-Item "deploy.zip"
+          Write-Host "Deploy package created:"
+          Write-Host "   Size: $([math]::Round($zipInfo.Length / 1KB, 2)) KB"
+
+      - name: Prepare SSH key
+        shell: powershell
         run: |
-          wsl ssh -i /mnt/c/Users/%USERNAME%/.ssh/deploy_key -o StrictHostKeyChecking=no -o ConnectTimeout=30 ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} "cd ~/wfm-awx/server && if [ '${{ github.ref }}' = 'refs/heads/main' ]; then docker-compose -f docker-compose.yml up --build -d; elif [ '${{ github.ref }}' = 'refs/heads/dev' ]; then docker-compose -f docker-compose.yml up --build -d; fi"
+          $sshDir = Join-Path $env:USERPROFILE ".ssh"
+          New-Item -ItemType Directory -Force -Path $sshDir | Out-Null
+
+          $keyContent = '${{ secrets.SERVER_SSH_KEY }}'
+          if (!$keyContent) {
+            Write-Error "SERVER_SSH_KEY secret is not configured"
+            exit 1
+          }
+
+          $keyPath = Join-Path $sshDir "id_deploy"
+
+          # Normalize line endings and ensure proper format
+          $keyContent = $keyContent.Replace("`r`n", "`n").Replace("`r", "`n")
+
+          # Ensure key ends with a newline
+          if (!$keyContent.EndsWith("`n")) {
+            $keyContent += "`n"
+          }
+
+          # Write with Unix line endings (LF only)
+          $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+          [System.IO.File]::WriteAllText($keyPath, $keyContent, $utf8NoBom)
+
+          # Set proper permissions (Windows)
+          $acl = Get-Acl $keyPath
+          $acl.SetAccessRuleProtection($true, $false)
+          $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+            $env:USERNAME, "FullControl", "Allow"
+          )
+          $acl.SetAccessRule($accessRule)
+          Set-Acl -Path $keyPath -AclObject $acl
+
+          Write-Host "SSH key prepared at: $keyPath"
+
+      - name: Preflight connectivity check
+        shell: powershell
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+        run: |
+          if (!$env:SERVER_HOST) {
+            Write-Error "SERVER_HOST secret is not configured"
+            exit 1
+          }
+
+          Write-Host "Testing connection to $env:SERVER_HOST:22..."
+          $connectionTest = Test-NetConnection $env:SERVER_HOST -Port 22 -WarningAction SilentlyContinue
+
+          if (!$connectionTest.TcpTestSucceeded) {
+            Write-Error "Cannot reach $env:SERVER_HOST:22 from runner. Check:"
+            Write-Error "   - Is the network/VPN connection active?"
+            Write-Error "   - Is the SERVER_HOST IP correct?"
+            Write-Error "   - Is SSH service running on the target server?"
+            Write-Error "   - Are firewall rules configured correctly?"
+            exit 1
+          }
+
+          Write-Host "✓ Connection to $env:SERVER_HOST:22 successful"
+
+      - name: Upload deploy bundle
+        shell: powershell
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          if (!$env:SERVER_USER) {
+            Write-Error "SERVER_USER secret is not configured"
+            exit 1
+          }
+
+          $sshKeyPath = Join-Path $env:USERPROFILE ".ssh\id_deploy"
+          $deployPath = "${{ steps.env.outputs.DEPLOY_PATH }}"
+
+          # First, ensure the deploy directory exists on the remote server
+          $sshDirArgs = @(
+            "-i", $sshKeyPath
+            "-p", "22"
+            "-o", "StrictHostKeyChecking=no"
+            "-o", "UserKnownHostsFile=NUL"
+            "$env:SERVER_USER@$env:SERVER_HOST"
+            "mkdir -p $deployPath"
+          )
+
+          Write-Host "Creating deploy directory on remote server..."
+          & ssh @sshDirArgs
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Failed to create deploy directory"
+            exit 1
+          }
+
+          # Upload deploy.zip
+          $scpArgs = @(
+            "-i", $sshKeyPath
+            "-P", "22"
+            "-o", "StrictHostKeyChecking=no"
+            "-o", "UserKnownHostsFile=NUL"
+            ".\deploy.zip"
+            "$env:SERVER_USER@$env:SERVER_HOST`:$deployPath/deploy.zip"
+          )
+
+          Write-Host "Uploading deploy.zip to $env:SERVER_USER@$env:SERVER_HOST..."
+          & scp @scpArgs
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "SCP upload failed with exit code $LASTEXITCODE"
+            exit 1
+          }
+
+          Write-Host "✓ Deploy bundle uploaded successfully"
+
+      - name: Deploy to ${{ steps.env.outputs.ENV_NAME }}
+        shell: powershell
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          BRANCH: ${{ github.ref }}
+        run: |
+          $envName = "${{ steps.env.outputs.ENV_NAME }}"
+          $deployPath = "${{ steps.env.outputs.DEPLOY_PATH }}"
+
+          # Create deployment script
+          $deployLines = @(
+            "#!/bin/bash",
+            "set -euo pipefail",
+            "cd $deployPath",
+            "",
+            "echo `"Starting deployment to $envName...`"",
+            "",
+            "# Extract deploy bundle",
+            "echo `"Extracting deploy bundle...`"",
+            "unzip -o deploy.zip",
+            "",
+            "# Stop existing containers",
+            "echo `"Stopping existing containers...`"",
+            "docker-compose down || true",
+            "",
+            "# Start services",
+            "echo `"Starting services...`"",
+            "docker-compose up --build -d",
+            "",
+            "# Wait for services to start",
+            "echo `"Waiting for services to start...`"",
+            "sleep 10",
+            "",
+            "# Show running containers",
+            "echo `"Running containers:`"",
+            "docker ps --format `"table {{.Names}}\t{{.Status}}\t{{.Ports}}`"",
+            "",
+            "# Check service health",
+            "echo `"Checking service health...`"",
+            "docker-compose ps",
+            "",
+            "# Show recent logs",
+            "echo `"Recent logs:`"",
+            "docker-compose logs --tail=20 || true",
+            "",
+            "echo `"✓ Successfully deployed to $envName`""
+          )
+
+          $deployScript = $deployLines -join "`n"
+          $sshKeyPath = Join-Path $env:USERPROFILE ".ssh\id_deploy"
+
+          # Create temporary script file
+          $tempScript = Join-Path $env:TEMP "deploy-script.sh"
+
+          # Write with Unix line endings
+          $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+          [System.IO.File]::WriteAllText($tempScript, $deployScript, $utf8NoBom)
+
+          # Upload the script
+          $scpScriptArgs = @(
+            "-i", $sshKeyPath
+            "-P", "22"
+            "-o", "StrictHostKeyChecking=no"
+            "-o", "UserKnownHostsFile=NUL"
+            $tempScript
+            "$env:SERVER_USER@$env:SERVER_HOST`:~/deploy-script.sh"
+          )
+
+          Write-Host "Uploading deployment script..."
+          & scp @scpScriptArgs
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Script upload failed"
+            exit 1
+          }
+
+          # Execute the script
+          $sshArgs = @(
+            "-i", $sshKeyPath
+            "-p", "22"
+            "-o", "StrictHostKeyChecking=no"
+            "-o", "UserKnownHostsFile=NUL"
+            "$env:SERVER_USER@$env:SERVER_HOST"
+            "chmod +x ~/deploy-script.sh && ~/deploy-script.sh && rm ~/deploy-script.sh"
+          )
+
+          Write-Host "Executing deployment on remote server..."
+          & ssh @sshArgs
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Deployment failed with exit code $LASTEXITCODE"
+            exit 1
+          }
+
+          # Clean up
+          Remove-Item -Path $tempScript -Force -ErrorAction SilentlyContinue
+
+          Write-Host "✓ Deployment completed successfully!"
 
       - name: Cleanup SSH key
         if: always()
         shell: powershell
         run: |
-          Remove-Item -Path "$env:USERPROFILE\.ssh\deploy_key" -ErrorAction SilentlyContinue
+          Remove-Item -Path "$env:USERPROFILE\.ssh\id_deploy" -ErrorAction SilentlyContinue
+          Write-Host "✓ SSH key cleaned up"
