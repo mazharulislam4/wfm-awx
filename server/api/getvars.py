@@ -7,7 +7,18 @@ import os
 
 router = APIRouter()
 
-file_path = Path(Path(__file__).parent.parent.parent, "ansible", "vars", "vars.yml")
+# Try to find the vars.yml file in different locations
+# First check if running in development (ansible folder exists at root level)
+dev_path = Path(Path(__file__).parent.parent.parent, "ansible", "vars", "vars.yml")
+# Then check if ansible folder is alongside the server folder (in Docker)
+docker_path = Path(Path(__file__).parent.parent, "ansible", "vars", "vars.yml")
+
+if dev_path.exists():
+    file_path = dev_path
+elif docker_path.exists():
+    file_path = docker_path
+else:
+    file_path = None
 
 
 @router.get("/get-vars", summary="Get input variables from YAML file")

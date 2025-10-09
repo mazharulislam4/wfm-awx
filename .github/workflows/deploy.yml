@@ -39,20 +39,38 @@ jobs:
           }
           New-Item -ItemType Directory -Force -Path ".deploy" | Out-Null
 
-          # Copy all server files
-          Copy-Item -Path "server\*" -Destination ".deploy\" -Recurse -Force
+          # Copy entire project (server and ansible folders)
+          Write-Host "Copying server folder..."
+          Copy-Item -Path "server" -Destination ".deploy\server" -Recurse -Force
 
-          # Create zip using .NET (simpler approach)
+          Write-Host "Copying ansible folder..."
+          Copy-Item -Path "ansible" -Destination ".deploy\ansible" -Recurse -Force
+
+          # Copy project root files if any
+          $rootFiles = @("README.md")
+          foreach ($file in $rootFiles) {
+            if (Test-Path $file) {
+              Copy-Item -Path $file -Destination ".deploy\" -Force
+            }
+          }
+
+          # Show what's being deployed
+          Write-Host "`nProject structure being deployed:"
+          Get-ChildItem -Path ".deploy" -Recurse -Directory | Select-Object -First 10 | ForEach-Object {
+            Write-Host "  📁 $($_.FullName.Replace((Get-Item '.deploy').FullName, ''))"
+          }
+
+          # Create tar archive
           if (Test-Path "deploy.zip") {
             Remove-Item "deploy.zip" -Force
           }
 
-          # Use tar command which is available on Windows 10+ and creates proper cross-platform archives
+          Write-Host "`nCreating deployment archive..."
           tar -czf deploy.zip -C .deploy .
 
-          # Show zip file info
+          # Show archive info
           $zipInfo = Get-Item "deploy.zip"
-          Write-Host "Deploy package created:"
+          Write-Host "`nDeploy package created:"
           Write-Host "   Size: $([math]::Round($zipInfo.Length / 1KB, 2)) KB"
 
       - name: Prepare SSH key
@@ -191,13 +209,23 @@ jobs:
             "echo 'Extracting deploy bundle...'",
             "tar -xzf deploy.zip",
             "",
-            "echo 'Files extracted:'",
+            "echo 'Project structure:'",
             "ls -la",
             "",
-            "if [ ! -f docker-compose.yml ]; then",
+            "echo 'Checking for docker-compose.yml...'",
+            "if [ -f server/docker-compose.yml ]; then",
+            "  echo 'Found docker-compose.yml in server folder'",
+            "  cd server",
+            "elif [ -f docker-compose.yml ]; then",
+            "  echo 'Found docker-compose.yml in root'",
+            "else",
             "  echo 'ERROR: docker-compose.yml not found'",
             "  exit 1",
             "fi",
+            "",
+            "echo 'Current directory:'",
+            "pwd",
+            "ls -la",
             "",
             "echo 'Stopping existing containers...'",
             "docker-compose down || true",
