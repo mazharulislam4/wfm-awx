@@ -66,7 +66,7 @@ jobs:
             Set-Content -Path ".deploy\.env" -Value "" -Encoding UTF8
           }
 
-          # Create zip archive using System.IO.Compression to avoid backslash issues
+          # Create zip archive with proper forward slashes for Linux compatibility
           Add-Type -AssemblyName System.IO.Compression.FileSystem
 
           # Remove old zip if exists
@@ -74,11 +74,37 @@ jobs:
             Remove-Item "deploy.zip" -Force
           }
 
-          # Create zip with forward slashes
+          $zipPath = Join-Path (Get-Location) "deploy.zip"
           $deployDir = (Resolve-Path ".deploy").Path
-          $zipPath = (Join-Path (Get-Location) "deploy.zip")
 
-          [System.IO.Compression.ZipFile]::CreateFromDirectory($deployDir, $zipPath, [System.IO.Compression.CompressionLevel]::Optimal, $false)
+          # Create zip file manually to control path separators
+          $zip = [System.IO.Compression.ZipFile]::Open($zipPath, [System.IO.Compression.ZipArchiveMode]::Create)
+
+          try {
+            # Add all files with forward slashes
+            Get-ChildItem -Path $deployDir -Recurse -File | ForEach-Object {
+              $relativePath = $_.FullName.Substring($deployDir.Length + 1)
+              # Replace backslashes with forward slashes for Linux compatibility
+              $entryName = $relativePath.Replace('\', '/')
+              
+              Write-Verbose "Adding: $entryName"
+              $entry = $zip.CreateEntry($entryName, [System.IO.Compression.CompressionLevel]::Optimal)
+              
+              $entryStream = $entry.Open()
+              $fileStream = [System.IO.File]::OpenRead($_.FullName)
+              
+              try {
+                $fileStream.CopyTo($entryStream)
+              }
+              finally {
+                $fileStream.Close()
+                $entryStream.Close()
+              }
+            }
+          }
+          finally {
+            $zip.Dispose()
+          }
 
           # Show zip file info
           $zipInfo = Get-Item "deploy.zip"
@@ -87,12 +113,12 @@ jobs:
 
           # Verify contents
           Write-Host "Contents of deploy.zip:"
-          $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
-          $zip.Entries | Select-Object -First 20 | ForEach-Object { Write-Host "   - $($_.FullName)" }
-          if ($zip.Entries.Count -gt 20) {
-            Write-Host "   ... and $($zip.Entries.Count - 20) more files"
+          $zipRead = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
+          $zipRead.Entries | Select-Object -First 20 | ForEach-Object { Write-Host "   - $($_.FullName)" }
+          if ($zipRead.Entries.Count -gt 20) {
+            Write-Host "   ... and $($zipRead.Entries.Count - 20) more files"
           }
-          $zip.Dispose()
+          $zipRead.Dispose()
 
       - name: Prepare SSH key
         shell: powershell
