@@ -39,8 +39,18 @@ jobs:
           }
           New-Item -ItemType Directory -Force -Path ".deploy" | Out-Null
 
-          # Copy server files
-          Copy-Item -Recurse "server\*" ".deploy\"
+          # Copy server files - flatten the structure to avoid Windows path issues
+          Get-ChildItem -Path "server" -Recurse -File | ForEach-Object {
+            $relativePath = $_.FullName.Substring((Get-Item "server").FullName.Length + 1)
+            $targetPath = Join-Path ".deploy" $relativePath
+            $targetDir = Split-Path $targetPath -Parent
+            
+            if ($targetDir -and !(Test-Path $targetDir)) {
+              New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+            }
+            
+            Copy-Item $_.FullName -Destination $targetPath -Force
+          }
 
           # Create .env file if secrets are available
           $envContent = "${{ secrets.ENV_PROD }}"
@@ -56,13 +66,33 @@ jobs:
             Set-Content -Path ".deploy\.env" -Value "" -Encoding UTF8
           }
 
-          # Create zip archive
-          Compress-Archive -Path ".deploy\*" -DestinationPath "deploy.zip" -Force
+          # Create zip archive using System.IO.Compression to avoid backslash issues
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+          # Remove old zip if exists
+          if (Test-Path "deploy.zip") {
+            Remove-Item "deploy.zip" -Force
+          }
+
+          # Create zip with forward slashes
+          $deployDir = (Resolve-Path ".deploy").Path
+          $zipPath = (Join-Path (Get-Location) "deploy.zip")
+
+          [System.IO.Compression.ZipFile]::CreateFromDirectory($deployDir, $zipPath, [System.IO.Compression.CompressionLevel]::Optimal, $false)
 
           # Show zip file info
           $zipInfo = Get-Item "deploy.zip"
           Write-Host "Deploy package created:"
           Write-Host "   Size: $([math]::Round($zipInfo.Length / 1KB, 2)) KB"
+
+          # Verify contents
+          Write-Host "Contents of deploy.zip:"
+          $zip = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
+          $zip.Entries | Select-Object -First 20 | ForEach-Object { Write-Host "   - $($_.FullName)" }
+          if ($zip.Entries.Count -gt 20) {
+            Write-Host "   ... and $($zip.Entries.Count - 20) more files"
+          }
+          $zip.Dispose()
 
       - name: Prepare SSH key
         shell: powershell
