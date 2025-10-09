@@ -4,8 +4,6 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: wfm-awx-fastapi
-    env_file:
-      - .env
     ports:
       - "8070:8070"
     volumes:
