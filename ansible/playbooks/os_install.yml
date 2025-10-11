@@ -9,18 +9,18 @@
 
   vars:
     # Runtime parameters - can be passed via -e or AWX
-    org_moid: "{{ steps.step1.organization_moid | default(organization_moid) | default('') }}"
-    srvr_moid: "{{ steps.step4.server_profile_moid | default(server_moid) | default('') }}"
-    srvr_object_type: "{{ steps.step4.server_object_type | default(server_object_type) | default('') }}"
-    os_img_moid: "{{ steps.step8.os_image.moid | default(os_image_moid) | default('') }}"
-    scu_img_moid: "{{ steps.step10.scu_image.moid | default(scu_image_moid) | default('') }}"
-    cnfg_file_moid: "{{ steps.step9.os_config_file.moid | default(config_file_moid) | default('') }}"
-    hostname: "{{ install_hostname | default('') }}"
-    password: "{{ root_password }}"
+    org_moid: "{{ organization_moid }}"
+    srvr_moid: "{{ server_moid }}"
+    srvr_object_type: "{{ server_object_type }}"
+    os_img_moid: "{{ os_image_moid }}"
+    scu_img_moid: "{{ scu_image_moid }}"
+    cnfg_file_moid: "{{ config_file_moid }}"
+    hostname: "{{ username }}"
+    passwd: "{{ password }}"
     dns_primary_address: "{{ dns_primary }}"
-    management_ip: "{{ mgmt_ip | default('') }}"
-    management_netmask: "{{ mgmt_netmask }}"
-    management_gw: "{{ mgmt_gw }}"
+    mgmnt_ip: "{{ management_ip }}"
+    mgmnt_netmask: "{{ management_netmask }}"
+    mgmnt_gw: "{{ management_gateway }}"
 
   tasks:
     - name: "Debug variable values"
@@ -35,11 +35,11 @@
           scu_img_moid: {{ scu_img_moid }}
           cnfg_file_moid: {{ cnfg_file_moid }}
           hostname: {{ hostname }}
-          password: {{ password }}
+          password: {{ passwd }}
           dns_primary_address: {{ dns_primary_address }}
-          management_ip: {{ management_ip }}
-          management_netmask: {{ management_netmask }}
-          management_gw: {{ management_gw }}
+          management_ip: {{ mgmnt_ip }}
+          management_netmask: {{ mgmnt_netmask }}
+          management_gw: {{ mgmnt_gw }}
 
           Raw step variables (if available):
           ==================================
@@ -60,11 +60,11 @@
         cnfg_file_moid is not defined or cnfg_file_moid == "" or
         scu_img_moid is not defined or scu_img_moid == "" or
         hostname is not defined or hostname == "" or
-        password is not defined or password == "" or
+        passwd is not defined or passwd == "" or
         dns_primary_address is not defined or dns_primary_address == "" or
-        management_ip is not defined or management_ip == "" or
-        management_netmask is not defined or management_netmask == "" or
-        management_gw is not defined or management_gw == ""
+        mgmnt_ip is not defined or mgmnt_ip == "" or
+        mgmnt_netmask is not defined or mgmnt_netmask == "" or
+        mgmnt_gw is not defined or mgmnt_gw == ""
     - name: Trigger OS Install
       cisco.intersight.intersight_rest_api:
         api_key_id: "{{ intersight_api_key_id }}"
@@ -95,16 +95,16 @@
           Answers:
             Hostname: "{{ hostname }}"
             IpConfigType: "static"
-            RootPassword: "{{ password }}"
+            RootPassword: "{{ passwd }}"
             IsRootPasswordCrypted: false
             Nameserver: "{{ dns_primary_address }}"
             Source: "Template"
             IpConfiguration:
               ObjectType: "os.Ipv4Configuration"
               IpV4Config:
-                IpAddress: "{{ management_ip }}"
-                Netmask: "{{ management_netmask }}"
-                Gateway: "{{ management_gw }}"
+                IpAddress: "{{ mgmnt_ip }}"
+                Netmask: "{{ mgmnt_netmask }}"
+                Gateway: "{{ mgmnt_gw }}"
           InstallTarget:
             ObjectType: "os.VirtualDrive"
             Name: "MStorBootVd"
@@ -123,9 +123,9 @@
             install_moid: "{{ install_resp.api_response.Moid | default('unknown') }}"
             moid: "{{ srvr_moid }}"
             hostname: "{{ hostname }}"
-            mgmt_ip: "{{ management_ip }}"
+            management_ip: "{{ mgmnt_ip }}"
             install_status: "{{ install_resp.api_response.InstallState | default('initiated') }}"
             data: "{{ install_resp }}"
             job_type: "os_install"
             status: "success"
-            password: "{{ password }}"
+            password: "{{ passwd }}"

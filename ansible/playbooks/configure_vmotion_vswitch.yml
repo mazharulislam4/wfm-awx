@@ -12,15 +12,15 @@
     # mgmt_ip from Step 12 which is the host now
     # install_hostname from Step 12 which is username
     # root_password from Step 12
-    esxi_hostname: "{{ steps.step11.os_installation.mgmt_ip | default(mgmt_ip) | default('') }}"
-    esxi_username: "{{ steps.step11.os_installation.hostname | default(esxi_username) | default('root') }}"
-    esxi_password: "{{ steps.step11.os_installation.password | default(esxi_password) | default('') }}"
-    switch_name: "{{ vmotion_vswitch | default('vSwitch3') }}"
-    nic_list: "{{ vmotion_uplinks.split(',') | map('trim') | list | default(['vmnic6', 'vmnic7']) }}"
-    pg_name: "{{ vmotion_portgroup | default('vMotion') }}"
-    vlan_number: "{{ vmotion_vlan_id | default(0) }}"
-    vmotion_address: "{{ steps.step6.ip_address | default(vmotion_ip) | default('') }}"
-    vmotion_mask: "{{ vmotion_netmask | default('255.255.255.0') }}"
+    esxi_hostname: "{{ management_ip }}"
+    esxi_username: "{{ hostname }}"
+    esxi_password: "{{ password }}"
+    switch_name: "{{ vmotion_vswitch }}"
+    nic_list: "{{ vmotion_uplinks }}"
+    pg_name: "{{ portgroup_name }}"
+    vlan_number: "{{ vlan_id }}"
+    vmotion_address: "{{ vmotion_ip_address }}"
+    vmotion_mask: "{{ netmask }}"
 
   tasks:
     - name: "Validate required runtime parameters"

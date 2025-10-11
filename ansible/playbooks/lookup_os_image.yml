@@ -9,7 +9,7 @@
 
   vars:
     # Runtime parameter - must be passed via extra-vars
-    image_name: "{{ os_image_name | default('') }}"
+    image_name: "{{ os_image_name }}"
 
   tasks:
     - name: "Validate required runtime parameters"

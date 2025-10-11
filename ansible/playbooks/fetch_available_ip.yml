@@ -9,12 +9,12 @@
 
   vars:
     # Runtime parameters - can be passed via -e or AWX or chained from previous steps
-    network_id: "{{ network_cidr | default(fetch_ip_input.network_id | default('')) }}"
-    num_ips: "{{ number_of_ips | default(1) }}"
-    api_url: "{{ infoblox_api_url | default('') }}"
-    api_timeout: "{{ infoblox_timeout | default(30) }}"
-    retry_count: "{{ api_retry_count | default(3) }}"
-    retry_delay: "{{ api_retry_delay | default(5) }}"
+    network_id: "{{ network_id }}"
+    num_ips: "{{ default(1) }}"
+    api_url: "{{ infoblox_api_url }}"
+    api_timeout: "{{ default(30) }}"
+    retry_count: "{{ default(3) }}"
+    retry_delay: "{{ default(5) }}"
 
   tasks:
     - name: Debug current variable values

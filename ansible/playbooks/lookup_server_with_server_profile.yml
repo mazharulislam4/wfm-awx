@@ -9,7 +9,7 @@
 
   vars:
     # Runtime parameters - can be passed via -e or AWX or chained from previous steps
-    profile_moid: "{{ server_profile_moid | default(steps.step4.server_profile_moid) | default('') }}"
+    profile_moid: "{{ server_profile_moid }}"
 
   tasks:
     - name: Check serve profile moid is defined from previous step or input

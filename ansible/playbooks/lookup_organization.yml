@@ -6,12 +6,11 @@
 
   vars_files:
     - credentials.yml
+    - ../vars/vars.yml
 
   vars:
-    userinputs: ["organization_name"]
-    # Default organization name - can be overridden at runtime
-    default_org_name: "default"
-    org_name: "{{ organization_name | default(default_org_name) }}"
+
+    org_name: "{{ organization_name }}"
 
   tasks:
     - name: "Lookup Organization Moid"

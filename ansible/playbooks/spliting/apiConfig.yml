@@ -1,3 +1,0 @@
-intersight_api_key_id: "68701e3f75646133015b674b/689f736a75646132018d48c6/68bb2c5f7564613201166aac"
-intersight_api_private_key: "{{ lookup('file', 'AnsibleDev-SecretKey.txt') }}"
-intersight_base_url: "https://intersight.com/api/v1"

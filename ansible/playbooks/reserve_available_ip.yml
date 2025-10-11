@@ -9,12 +9,12 @@
 
   vars:
     # Runtime parameters - can be passed via -e or AWX or chained from fetch_available_ip.yml
-    reservation_name: "{{ ip_reservation_name | default('auto-reserved-ip') }}"
-    ip_address: "{{ ip_address_to_reserve | default(steps.step5.ip_allocation.available_ip | default('')) }}"
-    comment: "{{ reservation_comment | default('Reserved via Ansible automation') }}"
-    match_client: "{{ match_client_type | default('RESERVED') }}"
-    api_url: "{{ infoblox_api_url | default('') }}"
-    api_timeout: "{{ infoblox_timeout | default(30) }}"
+    reservation_name: "{{ ip_reservation_name }}"
+    ip_address: "{{  ip_address_to_reserve }}"
+    comment: "{{ default('Reserved via automation') }}"
+    match_client: "{{ default('RESERVED') }}"
+    api_url: "{{ infoblox_api_url  }}"
+    api_timeout: "{{ default(30) }}"
 
   tasks:
     - name: "Validate required runtime parameters"
